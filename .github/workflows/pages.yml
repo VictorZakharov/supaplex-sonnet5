@@ -17,9 +17,12 @@ permissions:
   pages: write
   id-token: write
 
+# Queue rather than cancel: Deploy and PR preview finishing back-to-back (e.g. a
+# PR merge) trigger two runs, and cancelling one mid-deploy shows up as a scary
+# errored deployment. Runs are short; let them serialize.
 concurrency:
   group: pages-publish
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   publish:
