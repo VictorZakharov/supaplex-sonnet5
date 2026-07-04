@@ -1,0 +1,47 @@
+# Publishes the gh-pages branch to GitHub Pages via the Actions-native deployment
+# (build_type: workflow), bypassing the legacy Jekyll pipeline entirely.
+#
+# Deploy (prod → gh-pages root) and PR preview (→ gh-pages/pr-preview/pr-N) keep
+# writing to the gh-pages branch exactly as before; this workflow fires when either
+# finishes and re-publishes the whole branch tree as the Pages site.
+name: Publish Pages
+
+on:
+  workflow_run:
+    workflows: [Deploy, PR preview]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-publish
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout gh-pages
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+
+      - name: Drop git metadata
+        run: rm -rf .git
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
