@@ -1,0 +1,55 @@
+name: Build
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # "build" is a required status check, so this workflow must always run
+      # and report. Instead of paths-ignore on the trigger (which would leave
+      # docs-only PRs unmergeable with no check at all), detect whether any
+      # code changed and skip the expensive steps when it didn't.
+      - name: Detect code changes
+        uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            code:
+              - '**'
+              - '!**/*.md'
+              - '!LICENSE'
+              - '!.gitignore'
+
+      - name: Set up Node.js
+        if: steps.changes.outputs.code == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        if: steps.changes.outputs.code == 'true'
+        run: npm ci
+
+      - name: Type check
+        if: steps.changes.outputs.code == 'true'
+        run: npm run typecheck
+
+      - name: Build
+        if: steps.changes.outputs.code == 'true'
+        run: npm run build

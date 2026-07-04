@@ -1,8 +1,22 @@
 {
   "name": "supaplex-sonnet5",
   "version": "1.0.0",
-  "description": "A TypeScript/Canvas2D clone of the classic puzzle game Supaplex",
-  "private": true,
+  "description": "A from-scratch TypeScript/Canvas2D clone of the classic puzzle game Supaplex",
+  "license": "MIT",
+  "author": "Victor Zakharov",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/VictorZakharov/supaplex-sonnet5.git"
+  },
+  "homepage": "https://github.com/VictorZakharov/supaplex-sonnet5#readme",
+  "keywords": [
+    "supaplex",
+    "puzzle-game",
+    "canvas2d",
+    "typescript",
+    "webpack",
+    "game"
+  ],
   "scripts": {
     "start": "webpack serve --mode development",
     "build": "webpack --mode production",
