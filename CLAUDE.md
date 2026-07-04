@@ -1,7 +1,9 @@
 # Supaplex Clone
 
 A from-scratch clone of the classic puzzle game Supaplex. TypeScript + Webpack + Canvas2D,
-no frameworks. **Not a git repo** — no version control initialized yet.
+no frameworks. Git repo, pushed to a private GitHub repo at
+[VictorZakharov/supaplex-sonnet5](https://github.com/VictorZakharov/supaplex-sonnet5) (`origin`,
+branch `master`).
 
 ## Commands
 
