@@ -1,0 +1,22 @@
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: #0a0a0f;
+  color: #e0e0e0;
+  font-family: "Cascadia Code", "JetBrains Mono", "SF Mono", "Consolas", "Courier New", monospace;
+  overflow: hidden;
+}
+
+#app {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+}
+
+#game-canvas {
+  box-shadow: 0 0 0 2px #333, 0 0 40px rgba(0, 150, 255, 0.15);
+  background: #000;
+}

@@ -1,0 +1,68 @@
+import { PALETTE } from "../render/palette";
+
+export interface HintEntry {
+  swatch: string;
+  label: string;
+  desc: string;
+}
+
+/** New mechanics introduced by each level, in LEVELS order. Only what's new — not a repeat of earlier hints. */
+export const LEVEL_HINTS: readonly HintEntry[][] = [
+  [
+    { swatch: PALETTE.wall, label: "Wall", desc: "Solid. Blocks movement — rounded, so rocks resting on a narrow ledge of it roll off the edge." },
+    { swatch: PALETTE.wallSquare, label: "Square Wall", desc: "Solid like Wall, but flat-edged — nothing rolls off it, even from a single-cell pedestal." },
+    { swatch: PALETTE.base, label: "Base", desc: "Diggable dirt — walk into it to clear a path through." },
+    { swatch: PALETTE.infotron, label: "Infotron", desc: "Collect every one on the level to unlock the Exit." },
+    { swatch: PALETTE.exitClosed, label: "Exit", desc: "Opens once all Infotrons are collected." },
+    {
+      swatch: PALETTE.hudText,
+      label: "Space + Direction",
+      desc: "Act on the adjacent cell without stepping into it — collect an Infotron or clear a dirt tile in place.",
+    },
+  ],
+  [
+    {
+      swatch: PALETTE.zonk,
+      label: "Zonk",
+      desc: "Falls when unsupported, rolls off rounded ledges, and can be pushed sideways. One landing on Murphy is fatal.",
+    },
+  ],
+  [
+    { swatch: PALETTE.orangeDisk, label: "Orange Disk", desc: "Pushable like a Zonk, but ignores gravity — it never falls." },
+    { swatch: PALETTE.port, label: "Port", desc: "One-way gate. Approach from the right direction and you warp straight through to the other side." },
+    {
+      swatch: PALETTE.gravityPort,
+      label: "Gravity Port",
+      desc: "Like a Port, but also flips gravity for every loose object in the level.",
+    },
+  ],
+  [
+    {
+      swatch: PALETTE.electron,
+      label: "Bug + Electron",
+      desc: "Electrons orbit their Bug forever. Deadly to touch — but a falling Zonk landing on one destroys it.",
+    },
+    {
+      swatch: PALETTE.snikSnak,
+      label: "Snik-Snak",
+      desc: "Patrols by always hugging the wall on its left. Deadly to touch, destroyed by a falling object.",
+    },
+  ],
+  [
+    {
+      swatch: PALETTE.generator,
+      label: "Zonk Generator",
+      desc: "Periodically spawns a fresh Zonk beneath itself — keep clear, or put the Zonks it makes to use.",
+    },
+    {
+      swatch: PALETTE.bomb,
+      label: "Impact Bomb",
+      desc: "A square 3.5\" disk — pushable like a Zonk, but never rolls off a ledge. Harmless at rest, but explodes the instant it collides with something — landing after a fall, or having something else land on it.",
+    },
+    {
+      swatch: PALETTE.bombArmed,
+      label: "Timed Bomb",
+      desc: "Hold Space + a direction to plant one from your limited supply in that cell without moving, then step away — it detonates itself on a short fuse.",
+    },
+  ],
+];
