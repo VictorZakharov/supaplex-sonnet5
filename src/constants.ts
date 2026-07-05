@@ -21,6 +21,8 @@ export const TIMED_BOMB_FUSE_TICKS = 20;
 /** Ticks Space must be held before a timed bomb is actually planted (the "charge"). */
 export const BOMB_PLANT_CHARGE_TICKS = 5;
 export const CHAIN_BOMB_FUSE_TICKS = 3;
+/** Ticks before a chain-hit enemy/bomb's own blast fires — chains visibly ripple, never instant. */
+export const CHAIN_BLAST_DELAY_TICKS = 3;
 
 /** Ticks between Murphy's death explosion and the "died" overlay — the world keeps running. */
 export const MURPHY_DEATH_DELAY_TICKS = 14;

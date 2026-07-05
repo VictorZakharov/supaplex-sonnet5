@@ -10,7 +10,7 @@ import { resolveFallingObjects } from "../entities/fallingObjects";
 import { resolveSnikSnaks } from "../entities/snikSnak";
 import { resolveElectrons, spawnElectronHarvest } from "../entities/electron";
 import { resolveZonkGenerators } from "../entities/zonkGenerator";
-import { explodeBomb, resolveTimedBombs } from "../entities/bomb";
+import { explodeBomb, resolvePendingBlasts, resolveTimedBombs } from "../entities/bomb";
 
 function findMurphy(grid: Grid): MurphyOccupant | null {
   for (const occ of grid.allOccupants()) {
@@ -57,6 +57,7 @@ export class PhysicsEngine {
     resolveElectrons(this.grid, events, claims);
     resolveZonkGenerators(this.grid, this.gravity, claims, this.nextId);
     resolveTimedBombs(this.grid, events, this.nextId);
+    resolvePendingBlasts(this.grid, events, this.nextId);
 
     // Every Murphy death is an explosion first, message later: blow him off the grid with a
     // REAL blast — the enemy that snipped/touched him is adjacent, so it dies in the explosion

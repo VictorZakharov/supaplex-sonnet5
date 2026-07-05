@@ -226,10 +226,13 @@ surfaces as an errored deployment.
     rolls/falls into afterward) makes the push silently fail against Base terrain (`isOpenForPush`
     requires exactly `Empty`) with no error — the object just doesn't move. When a push/roll demo
     "does nothing," check every cell along its path was carved, not just the start and end.
-12. **Enemies explode when destroyed (falling object or blast), chaining to adjacent
-    enemies/bombs — but ONLY an Electron's own blast seeds Infotrons; a Snik-Snak's blast (or any
+12. **Enemies explode when destroyed, and chains ripple with a visible delay — never instantly.**
+    A chain-hit enemy/impact-bomb dies immediately but its own blast fires
+    `CHAIN_BLAST_DELAY_TICKS` later via `cell.pendingBlast` + `resolvePendingBlasts` (which
+    collects due cells before detonating any, so a marker set by this tick's blast always waits
+    its full delay). ONLY an Electron's own blast seeds Infotrons; a Snik-Snak's blast (or any
     other link in the chain) contributes none. Destroying a Bug's Electron specifically is a full
-    explosion plus a *deferred* Infotron shower.**
+    explosion plus a *deferred* Infotron shower.
     `destroyElectron()` runs a real `explodeBomb` (the triggering faller is consumed and never
     lands; everything destructible in the radius dies; chains apply), but only *records* the
     burst center in `events.electronBursts` — PhysicsEngine spawns the shower at end-of-tick via

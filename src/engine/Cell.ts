@@ -16,11 +16,20 @@ export interface PlantedBombState {
   fuseTicks: number;
 }
 
+/** A chain-reaction explosion scheduled at this cell: the occupant that was hit is already gone,
+ * its own blast fires when the countdown ends (see resolvePendingBlasts). `electron` marks that
+ * the detonation must also seed the Infotron shower. */
+export interface PendingBlastState {
+  ticksLeft: number;
+  electron: boolean;
+}
+
 export interface Cell {
   terrain: TerrainType;
   occupant: Occupant | null;
   generator?: GeneratorState;
   plantedBomb?: PlantedBombState;
+  pendingBlast?: PendingBlastState;
   fx?: FxState;
 }
 
