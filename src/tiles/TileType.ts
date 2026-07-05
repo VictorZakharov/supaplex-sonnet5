@@ -101,12 +101,28 @@ export interface BombPickupOccupant extends OccupantBase {
 export interface SnikSnakOccupant extends OccupantBase {
   type: "snikSnak";
   facing: Direction;
+  /** Turned on the previous tick — blocks two hug-turns in a row, so open ground circles instead of spinning in place. */
+  turnedLastTick: boolean;
+  /** Coiled to strike: the patrol's forward step found Murphy in the faced cell last tick — one beat to dodge. */
+  attacking: boolean;
+  /** Remaining forced 90° turns of an about-face (dodged strike / bumped another enemy). */
+  retreatTurns: number;
+  /** Which wall it hugs. Flips ONLY on a dodged strike or on bumping another enemy — otherwise the patrol is fully predictable. */
+  hugRight: boolean;
+  /** Continuous orientation in radians (0 = Right, matching directionAngle) — accumulated ±π/2 per
+   * turn so the renderer can ease the scissors through the turn instead of snapping 90°. */
+  rotation: number;
+  prevRotation: number;
 }
 
 export interface ElectronOccupant extends OccupantBase {
   type: "electron";
   homeBug: Point;
   ringIndex: number;
+  /** Orbit direction around the ring: -1 = counterclockwise (the default — see stepElectron). */
+  orbitStep: 1 | -1;
+  /** Coiled to strike: Murphy was in the next ring cell last tick. Deliberately NOT rendered — dodging an electron is a blind risk. */
+  attacking: boolean;
 }
 
 export type Occupant =

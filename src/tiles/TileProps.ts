@@ -1,5 +1,5 @@
 import { Direction } from "../types";
-import { InfotronOccupant, Occupant, TerrainType, ZonkOccupant } from "./TileType";
+import { InfotronOccupant, Occupant, SnikSnakOccupant, TerrainType, ZonkOccupant } from "./TileType";
 
 /** Terrain a Zonk/Infotron/unarmed Bomb can roll off of when its straight fall is blocked. */
 export function isTerrainRounded(t: TerrainType): boolean {
@@ -66,9 +66,10 @@ export function isOccupantFallable(o: Occupant | null): boolean {
   return o.type === "zonk" || o.type === "infotron" || o.type === "bomb";
 }
 
-/** Zonk and Infotron carry a cosmetic rotation the renderer spins as they roll off a ledge. */
-export function isOccupantRotating(o: Occupant | null): o is ZonkOccupant | InfotronOccupant {
-  return o !== null && (o.type === "zonk" || o.type === "infotron");
+/** Occupants carrying a cosmetic rotation the renderer interpolates: Zonk/Infotron roll-spin,
+ * and the Snik-Snak's smooth 90° turning. */
+export function isOccupantRotating(o: Occupant | null): o is ZonkOccupant | InfotronOccupant | SnikSnakOccupant {
+  return o !== null && (o.type === "zonk" || o.type === "infotron" || o.type === "snikSnak");
 }
 
 /** Zonk and Infotron track whether they were already falling/rolling last tick — only a rock

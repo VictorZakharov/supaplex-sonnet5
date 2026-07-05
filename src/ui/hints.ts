@@ -40,12 +40,12 @@ export const LEVEL_HINTS: readonly HintEntry[][] = [
     {
       swatch: PALETTE.electron,
       label: "Bug + Electron",
-      desc: "Electrons orbit their Bug forever. Deadly to touch — but a falling Zonk landing on one destroys it.",
+      desc: "Electrons orbit their Bug forever. Deadly — though like the scissors it strikes a beat after cornering you, and a dodge reverses its orbit. Nothing shows the wind-up, so that's a gamble. Drop a Zonk on one and it detonates, filling the blast area with bonus Infotrons.",
     },
     {
       swatch: PALETTE.snikSnak,
       label: "Snik-Snak",
-      desc: "Patrols by always hugging the wall on its left. Deadly to touch, destroyed by a falling object.",
+      desc: "Roams blade-first, forever hugging one wall — its route is fully predictable, and standing anywhere off it is safe. It strikes only when its own patrol steps into you, with a beat of wind-up: dodge it and it reverses, hugging the other wall. Destroyed by a falling object.",
     },
   ],
   [
@@ -75,6 +75,16 @@ export const LEVEL_HINTS: readonly HintEntry[][] = [
       swatch: PALETTE.gravityPort,
       label: "The Plug",
       desc: "Every mechanic returns. One Infotron hides behind a Zonk you can neither push nor dig around — but gravity works on Zonks, and you know a port that flips it.",
+    },
+    {
+      swatch: PALETTE.infotron,
+      label: "Electron Harvest",
+      desc: "The Exit demands more Infotrons than the level contains. The Bug's Electron is the difference — crush it and collect the shower.",
+    },
+    {
+      swatch: PALETTE.orangeDisk,
+      label: "Rain Plug",
+      desc: "The Generator rains Zonks over the bomb room's only doorway, and the pile will seal it before long. The Orange Disk ignores gravity — push it under the Generator's mouth and it hovers there, shutting the rain off for good.",
     },
   ],
 ];

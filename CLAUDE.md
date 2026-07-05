@@ -66,9 +66,48 @@ surfaces as an errored deployment.
   new theme each, the 6th ("Finale") combines every mechanic into a hub-plus-four-branch-rooms
   layout where the rooms can be tackled in any order. `src/ui/hints.ts` has a parallel per-level
   list of "what's new" text shown in the in-game side panel — keep it in sync when adding mechanics.
+  Per-level knobs on `LevelData`: `generatorIntervalTicks` (Finale slows the rain to 60 so the
+  crossing under the chute stays open long enough) and `extraInfotronsRequired` (see gotcha 12).
+  The Finale's Orange Disk is load-bearing, not a demo: pushed (17,11)→(18,11) it hovers over the
+  Zonk Generator's spawn cell — the only object that can, since everything else falls — and shuts
+  the rain off; the tray carves at (17/19, 13-14) let landed Zonks roll aside so the row-13
+  crossing only seals at the 4th Zonk if the player never plugs it.
+- **The start menu is a DOM overlay, not canvas** (`src/ui/StartMenu.ts` + `#start-menu` in
+  index.html/styles.css): level cards get real CSS transitions on hover/selection, clicks/hovers
+  feed back into `Game.selectedLevelIndex`, and keyboard grid-nav stays in `Game.loop`'s start
+  case. Card previews are the real tile drawers rasterized once per level into offscreen canvases
+  (`src/ui/levelPreviews.ts`, 2x scale for HiDPI). The gameplay canvas just clears behind it.
 - **Full mechanics, not a simplified subset.** Zonk Generators and Timer Bombs are intentionally
   included even though the original 1991 Supaplex didn't have them — this was an explicit scope
   decision, not a mistake. Don't "fix" them away.
+- **Enemies never seek Murphy — the only kill is their own patrol step landing on him.** The
+  Snik-Snak (`snikSnak.ts`) is a pure wall-hugger (`hugRight`, default left) and fully
+  predictable: standing anywhere off its route is safe, adjacency and facing alone never kill.
+  Per tick exactly one of: land a wound-up strike (`attacking` — last tick's forward step found
+  Murphy in the faced cell; the one-beat dodge window); reverse after a dodge (`reversePatrol`:
+  hug side flips + `retreatTurns` two-turn about-face — a dodge-trick or bumping another enemy
+  are the ONLY things that ever change the hug side); hug-side turn (`turnedLastTick` blocks two
+  in a row, so open ground circles) — fires even with Murphy dead ahead, turning away is
+  harmless; wind up instead of stepping when Murphy is the forward cell; step forward; or rotate
+  toward an open side (off-side first) when blocked by walls/objects. Turning is always ±90° per
+  tick via the continuous `rotation`/`prevRotation` angle the renderer interpolates
+  (`isOccupantRotating`, like Zonk roll-spin) — never snap `facing` without adjusting `rotation`
+  alongside. Blades = front = deadly, handle rings = back. The Electron mirrors the same rules on
+  its orbit ring: one `attacking` coil-up tick before striking a Murphy in its next ring cell,
+  and a dodge reverses `orbitStep` — but its coil-up is deliberately NOT rendered; that blind
+  beat is the risk the electron adds (base orbit stays counterclockwise — see gotcha 5).
+- **Murphy's death is two-phase** (`MURPHY_DEATH_DELAY_TICKS`): any `events.murphyDied` removes him
+  from the grid with a REAL end-of-tick `explodeBomb` blast (`PhysicsEngine`) — the adjacent enemy
+  that killed him dies in it too (an Electron killer chain-bursts) — then the world keeps
+  simulating while `state.deathDelayTicks` counts down in `resolveCollisions`, and only then does
+  the status flip to `dead`/`gameOver`. Lives are decremented when the countdown ends, not when
+  the kill lands. Don't "simplify" back to an instant status flip — the explosion playing out
+  before the overlay is deliberate UX. A crushing rock is deliberately left mid-air by
+  `fallingObjects` (never lands) so this same end-of-tick blast consumes it — every Murphy death
+  goes through the one explosion path, killer included.
+- **Round Wall cells are *drawn* round where a run ends**: `Renderer.wallCornerMask` rounds a
+  Wall corner only when both neighbors on that side are non-solid (off-map counts as solid), so
+  the visual matches the roll-off-the-edge mechanic. `WallSquare` stays sharp-cornered on purpose.
 - **Two distinct bomb types** (`src/entities/bomb.ts`): impact bombs (type `"bomb"`, drawn as a
   square 3.5" floppy disk) are pushable/fallable but square-shaped so they never roll, and explode
   the instant they collide with anything (land, or get landed on) — otherwise permanently inert.
@@ -112,9 +151,11 @@ surfaces as an errored deployment.
 4. **Level completability should be verified programmatically, not just by eyeballing screenshots.**
    A BFS flood-fill from Murphy's start over walkable terrain (Empty/Base/Port/Exit), checked
    against every placed Infotron's position, catches "unreachable pickup" bugs immediately. This
-   is done via temporary debug methods on `Game` (`debugReachability()`, `debugDumpGrid()`,
-   `debugLoadLevel()`, `debugTick()`, `debugState()`) exposed on `window.__game` — worth re-adding
-   temporarily any time levels change, then removing again.
+   is done via the PERMANENT debug harness in `src/engine/debugHarness.ts` (`debugFreeze()`,
+   `debugLoadLevel()`, `debugTick()`, `debugState()`, `debugDumpGrid()`, `debugMoveMurphy()`,
+   `debugSpawnZonk()`), exposed as `window.__game` ONLY when the page is loaded with the `?debug`
+   URL flag (`http://localhost:8080/?debug`) — don't re-add ad-hoc copies and don't strip it
+   before commits; it ships but is unreachable without the flag.
    - **Also add `debugFreeze(frozen)`/have `debugLoadLevel` auto-freeze.** The game's own
      `requestAnimationFrame` loop keeps calling `updatePlaying` with real wall-clock `dt` between
      separate Playwright round-trips (and can even sneak a tick in between a synchronous debug
@@ -185,12 +226,24 @@ surfaces as an errored deployment.
     rolls/falls into afterward) makes the push silently fail against Base terrain (`isOpenForPush`
     requires exactly `Empty`) with no error — the object just doesn't move. When a push/roll demo
     "does nothing," check every cell along its path was carved, not just the start and end.
-12. **Destroying a Bug's Electron via `destroyElectron()` bursts it like a small bomb**: every Base
-    tile in its blast radius becomes a fresh Infotron (via `createInfotron`), which then falls
-    naturally under normal gravity — no special-casing needed beyond spawning it. These bonus
-    Infotrons are *not* counted in `infotronsRequired` (that's fixed at level-parse time from the
-    level's authored layout), so treat electron-kill Infotrons as optional bonus score, never as
-    something a level's completability depends on.
+12. **Enemies explode when destroyed, and chains ripple with a visible delay — never instantly.**
+    A chain-hit enemy/impact-bomb dies immediately but its own blast fires
+    `CHAIN_BLAST_DELAY_TICKS` later via `cell.pendingBlast` + `resolvePendingBlasts` (which
+    collects due cells before detonating any, so a marker set by this tick's blast always waits
+    its full delay). ONLY an Electron's own blast seeds Infotrons; a Snik-Snak's blast (or any
+    other link in the chain) contributes none. Destroying a Bug's Electron specifically is a full
+    explosion plus a *deferred* Infotron shower.
+    `destroyElectron()` runs a real `explodeBomb` (the triggering faller is consumed and never
+    lands; everything destructible in the radius dies; chains apply), but only *records* the
+    burst center in `events.electronBursts` — PhysicsEngine spawns the shower at end-of-tick via
+    `spawnElectronHarvest`, after ALL of the tick's blasts, because an overlapping bomb blast
+    iterating past a just-filled cell would otherwise destroy part of the harvest. Every open
+    blast cell (including the Electron's own) gets an Infotron, which falls naturally. A level
+    MAY require harvest Infotrons via `LevelData.extraInfotronsRequired` (the Finale sets 7 =
+    its worst kill-position yield, an explicit user decision for 12 total). When picking the
+    number, count solid cells in the blast at every possible kill position; note a roaming enemy
+    wandering into the blast area the same tick can block one more shower cell (an enemy phase
+    runs between the blast and the end-of-tick fill) — the Finale accepts that rare edge.
 13. **Testing gotcha: `events.anyKey`-driven state transitions (`"dead"` → reload, `"levelComplete"`
     → next level, etc.) are NOT gated by `debugFreeze`.** They live in `Game.loop`'s top-level
     `switch`, outside the `if (!this.debugFrozen)` guard around `updatePlaying`. A stray queued
@@ -215,3 +268,9 @@ surfaces as an errored deployment.
     flippable level need `WallSquare` (nothing rolls off it, in either gravity). After any edit
     involving a Gravity Port, re-simulate the flip and diff every Zonk/Infotron position, not just
     the puzzle piece.
+16. **Menu keys are gameplay keys — level load must reset movement input.** The start screen's
+    Up/Down/Enter presses latch into `InputController`'s `pendingIntent`/`lastHeldDirection` like
+    any other keydown, and without `input.resetMovement()` in `Game.loadLevel` the very first tick
+    consumed them and "ghost-moved" Murphy a cell with no gameplay input (a real shipped bug). A
+    key still physically held across the transition stays inert until re-pressed — that's the
+    intended trade.

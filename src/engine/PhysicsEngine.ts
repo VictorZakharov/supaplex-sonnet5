@@ -8,9 +8,9 @@ import { MurphyOccupant } from "../tiles/TileType";
 import { resetBombCharge, resolveMurphyAction, resolveMurphyLook } from "../entities/murphyActions";
 import { resolveFallingObjects } from "../entities/fallingObjects";
 import { resolveSnikSnaks } from "../entities/snikSnak";
-import { resolveElectrons } from "../entities/electron";
+import { resolveElectrons, spawnElectronHarvest } from "../entities/electron";
 import { resolveZonkGenerators } from "../entities/zonkGenerator";
-import { resolveTimedBombs } from "../entities/bomb";
+import { explodeBomb, resolvePendingBlasts, resolveTimedBombs } from "../entities/bomb";
 
 function findMurphy(grid: Grid): MurphyOccupant | null {
   for (const occ of grid.allOccupants()) {
@@ -57,6 +57,24 @@ export class PhysicsEngine {
     resolveElectrons(this.grid, events, claims);
     resolveZonkGenerators(this.grid, this.gravity, claims, this.nextId);
     resolveTimedBombs(this.grid, events, this.nextId);
+    resolvePendingBlasts(this.grid, events, this.nextId);
+
+    // Every Murphy death is an explosion first, message later: blow him off the grid with a
+    // REAL blast — the enemy that snipped/touched him is adjacent, so it dies in the explosion
+    // too (an electron killer chain-bursts into its Infotron shower) — then resolveCollisions
+    // starts the delay before the died overlay. Some killers (a landing rock) already removed
+    // him — then only their own fx applies and the rock survives.
+    if (events.murphyDied) {
+      const victim = findMurphy(this.grid);
+      if (victim) {
+        const at = victim.pos;
+        this.grid.removeOccupant(at);
+        explodeBomb(this.grid, at, events, this.nextId);
+      }
+    }
+
+    // Deferred Electron showers — after every blast of the tick, so none of them get eaten.
+    spawnElectronHarvest(this.grid, events.electronBursts, this.nextId);
 
     this.state.elapsedTicks += 1;
     resolveCollisions(this.state, events);

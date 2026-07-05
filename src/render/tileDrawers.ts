@@ -1,5 +1,6 @@
-import { Direction } from "../types";
+import { Direction, Point } from "../types";
 import { Cell, FxState } from "../engine/Cell";
+import { Grid } from "../engine/Grid";
 import { Occupant, TerrainType } from "../tiles/TileType";
 import { BOMB_PLANT_CHARGE_TICKS } from "../constants";
 import { PALETTE } from "./palette";
@@ -71,7 +72,96 @@ function drawArmedDisk(ctx: CanvasRenderingContext2D, x: number, y: number, size
   ctx.fill();
 }
 
-export function drawTerrain(ctx: CanvasRenderingContext2D, cell: Cell, x: number, y: number, size: number): void {
+function paintBase(ctx: CanvasRenderingContext2D, x: number, y: number, size: number): void {
+  ctx.fillStyle = PALETTE.base;
+  ctx.fillRect(x, y, size, size);
+  ctx.fillStyle = PALETTE.baseDot;
+  for (let i = 0; i < 4; i++) {
+    const dx = ((i * 37) % 10) / 10;
+    const dy = ((i * 53) % 10) / 10;
+    ctx.fillRect(x + 4 + dx * (size - 12), y + 4 + dy * (size - 12), 3, 3);
+  }
+}
+
+/**
+ * The not-yet-eaten remainder of a Base tile Murphy is currently walking into — purely visual
+ * (the cell's terrain is already Empty in the grid). The dirt shrinks away from his entry edge
+ * as the walk interpolates: `dx/dy` is his travel direction, `progress` the walk fraction (0-1).
+ */
+export function drawBaseRemainder(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  size: number,
+  dx: number,
+  dy: number,
+  progress: number,
+): void {
+  const eaten = size * Math.min(1, Math.max(0, progress));
+  ctx.save();
+  ctx.beginPath();
+  if (dx > 0) ctx.rect(x + eaten, y, size - eaten, size); // entering from the left edge
+  else if (dx < 0) ctx.rect(x, y, size - eaten, size); // from the right edge
+  else if (dy > 0) ctx.rect(x, y + eaten, size, size - eaten); // from the top edge
+  else ctx.rect(x, y, size, size - eaten); // from the bottom edge
+  ctx.clip();
+  paintBase(ctx, x, y, size); // full-tile coords, so the dot pattern doesn't shift while shrinking
+  ctx.restore();
+}
+
+/** Which corners of a Wall cell are exposed (no solid neighbor on either adjacent side). */
+export type WallCorners = readonly [tl: boolean, tr: boolean, br: boolean, bl: boolean];
+
+/** Terrain a Wall run visually continues into — no rounding against these, so no background notches between solid tiles. */
+const WALL_CONTINUOUS = new Set<TerrainType>([
+  TerrainType.Wall,
+  TerrainType.WallSquare,
+  TerrainType.Hardware1,
+  TerrainType.Hardware2,
+  TerrainType.ZonkGenerator,
+  TerrainType.Bug,
+]);
+
+function solidAt(grid: Grid, x: number, y: number): boolean {
+  const p: Point = { x, y };
+  if (!grid.inBounds(p)) return true; // off-map counts as solid — border walls stay flush
+  return WALL_CONTINUOUS.has(grid.at(p).terrain);
+}
+
+/** A corner is rounded only where the wall run ends: both neighbors on that side are open. */
+export function wallCornerMask(grid: Grid, pos: Point): WallCorners {
+  const left = solidAt(grid, pos.x - 1, pos.y);
+  const right = solidAt(grid, pos.x + 1, pos.y);
+  const up = solidAt(grid, pos.x, pos.y - 1);
+  const down = solidAt(grid, pos.x, pos.y + 1);
+  return [!left && !up, !right && !up, !right && !down, !left && !down];
+}
+
+/** Traces the cell outline with the exposed corners rounded off; unexposed corners stay square. */
+function roundedCellPath(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, corners: WallCorners): void {
+  const r = size * 0.42;
+  const [tl, tr, br, bl] = corners;
+  ctx.beginPath();
+  ctx.moveTo(x + (tl ? r : 0), y);
+  ctx.lineTo(x + size - (tr ? r : 0), y);
+  if (tr) ctx.quadraticCurveTo(x + size, y, x + size, y + r);
+  ctx.lineTo(x + size, y + size - (br ? r : 0));
+  if (br) ctx.quadraticCurveTo(x + size, y + size, x + size - r, y + size);
+  ctx.lineTo(x + (bl ? r : 0), y + size);
+  if (bl) ctx.quadraticCurveTo(x, y + size, x, y + size - r);
+  ctx.lineTo(x, y + (tl ? r : 0));
+  if (tl) ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+export function drawTerrain(
+  ctx: CanvasRenderingContext2D,
+  cell: Cell,
+  x: number,
+  y: number,
+  size: number,
+  wallCorners?: WallCorners,
+): void {
   ctx.fillStyle = PALETTE.background;
   ctx.fillRect(x, y, size, size);
 
@@ -79,9 +169,13 @@ export function drawTerrain(ctx: CanvasRenderingContext2D, cell: Cell, x: number
     case TerrainType.Empty:
       break;
     case TerrainType.Wall:
-      // Rounded surface — rocks/bombs roll off it. Blobby, curved shading sells "round."
+      // Rounded surface — rocks/bombs roll off it, so where a wall run *ends* the corner is
+      // actually drawn round (per the neighbor-derived mask), matching the mechanic.
+      ctx.save();
+      roundedCellPath(ctx, x, y, size, wallCorners ?? [false, false, false, false]);
       ctx.fillStyle = PALETTE.wall;
-      ctx.fillRect(x, y, size, size);
+      ctx.fill();
+      ctx.clip();
       ctx.fillStyle = PALETTE.wallShade;
       ctx.beginPath();
       ctx.arc(x + size * 0.72, y + size * 0.28, size * 0.16, 0, Math.PI * 2);
@@ -89,6 +183,7 @@ export function drawTerrain(ctx: CanvasRenderingContext2D, cell: Cell, x: number
       ctx.beginPath();
       ctx.arc(x + size * 0.28, y + size * 0.72, size * 0.16, 0, Math.PI * 2);
       ctx.fill();
+      ctx.restore();
       break;
     case TerrainType.WallSquare:
       // Flat, square-edged surface — nothing rolls off it, even a 1-wide pedestal holds. Sharp
@@ -121,14 +216,7 @@ export function drawTerrain(ctx: CanvasRenderingContext2D, cell: Cell, x: number
       ctx.strokeRect(x + 4, y + 4, size - 8, size - 8);
       break;
     case TerrainType.Base:
-      ctx.fillStyle = PALETTE.base;
-      ctx.fillRect(x, y, size, size);
-      ctx.fillStyle = PALETTE.baseDot;
-      for (let i = 0; i < 4; i++) {
-        const dx = ((i * 37) % 10) / 10;
-        const dy = ((i * 53) % 10) / 10;
-        ctx.fillRect(x + 4 + dx * (size - 12), y + 4 + dy * (size - 12), 3, 3);
-      }
+      paintBase(ctx, x, y, size);
       break;
     case TerrainType.PortUp:
       drawArrow(ctx, x, y, size, Direction.Up, PALETTE.port);
@@ -340,46 +428,49 @@ export function drawOccupant(
       break;
     }
     case "bombPickup": {
-      // A dormant timed-bomb disk waiting to be picked up — smaller than a planted one, with a
-      // pulsing white outline so it clearly reads as a collectible, not a live bomb.
+      // A dormant timed-bomb disk waiting to be picked up — the smaller inset size alone
+      // distinguishes it from a planted one; no glow frame (no other object glows).
       const inset = size * 0.14;
       drawFloppyDisk(ctx, x + inset, y + inset, size - inset * 2, PALETTE.bombArmed);
-      const pulse = 0.45 + 0.35 * Math.sin(performance.now() / 260);
-      ctx.save();
-      ctx.globalAlpha = pulse;
-      ctx.strokeStyle = "#ffffff";
-      ctx.lineWidth = 2;
-      ctx.strokeRect(x + inset * 0.55, y + inset * 0.55, size - inset * 1.1, size - inset * 1.1);
-      ctx.restore();
       break;
     }
     case "snikSnak": {
-      // Rotating scissors: two crossed blades spinning around a pivot screw, like the original's
-      // snipping shears — not a static square. Purely cosmetic, so wall-clock-driven is fine.
+      // Scissors oriented along their facing: pointed snipping blades at the FRONT (the deadly
+      // direction), handle rings at the BACK — front and back must never read the same. The
+      // blades scissor open/closed on the wall clock (cosmetic), the orientation is game state.
       const cx = x + size / 2;
       const cy = y + size / 2;
-      const spin = ((performance.now() % 900) / 900) * Math.PI * 2;
+      const snip = 0.14 + 0.24 * (0.5 + 0.5 * Math.sin(performance.now() / 110));
       ctx.save();
       ctx.translate(cx, cy);
-      ctx.rotate(spin);
-      const blade = (angle: number, color: string): void => {
+      // `rotation` is the tick-interpolated orientation (see isOccupantRotating) — the scissors
+      // ease smoothly through each 90° turn instead of snapping to directionAngle(facing).
+      ctx.rotate(rotation);
+      const half = (angle: number, color: string): void => {
         ctx.save();
         ctx.rotate(angle);
+        // Blade: slim dart from the pivot to a pointed tip out front.
         ctx.fillStyle = color;
         ctx.beginPath();
-        ctx.moveTo(-size * 0.44, 0);
-        ctx.lineTo(-size * 0.1, -size * 0.1);
-        ctx.lineTo(size * 0.44, 0); // pointed blade tip
-        ctx.lineTo(-size * 0.1, size * 0.1);
+        ctx.moveTo(-size * 0.06, -size * 0.07);
+        ctx.lineTo(size * 0.46, 0);
+        ctx.lineTo(-size * 0.06, size * 0.07);
         ctx.closePath();
         ctx.fill();
+        // Handle ring trailing behind the pivot.
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(-size * 0.24, 0, size * 0.1, 0, Math.PI * 2);
+        ctx.stroke();
         ctx.restore();
       };
-      blade(0.5, PALETTE.snikSnak);
-      blade(-0.5, PALETTE.snikSnakBlade);
+      half(snip, PALETTE.snikSnak);
+      half(-snip, PALETTE.snikSnakBlade);
+      // Pivot screw.
       ctx.fillStyle = PALETTE.snikSnakEye;
       ctx.beginPath();
-      ctx.arc(0, 0, size * 0.07, 0, Math.PI * 2);
+      ctx.arc(0, 0, size * 0.06, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
       break;

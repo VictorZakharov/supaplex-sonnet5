@@ -7,6 +7,8 @@ export interface InputEdgeEvents {
   confirm: boolean;
   selectPrev: boolean;
   selectNext: boolean;
+  selectLeft: boolean;
+  selectRight: boolean;
 }
 
 function keyToDirection(key: string): Direction | null {
@@ -55,6 +57,8 @@ export class InputController {
   private confirmQueued = false;
   private selectPrevQueued = false;
   private selectNextQueued = false;
+  private selectLeftQueued = false;
+  private selectRightQueued = false;
 
   constructor(target: Window) {
     target.addEventListener("keydown", this.onKeyDown);
@@ -82,6 +86,8 @@ export class InputController {
       if (e.key === "Enter" || e.key === " ") this.confirmQueued = true;
       if (dir === Direction.Up) this.selectPrevQueued = true;
       if (dir === Direction.Down) this.selectNextQueued = true;
+      if (dir === Direction.Left) this.selectLeftQueued = true;
+      if (dir === Direction.Right) this.selectRightQueued = true;
       this.anyKeyQueued = true;
     }
   };
@@ -104,6 +110,19 @@ export class InputController {
     this.lastHeldDirection = null;
     this.spaceHeld = false;
   };
+
+  /**
+   * Forget all movement state (latched intent, held/tracked directions, Space). Called on level
+   * load: the menu's Up/Down/Enter presses latch into `pendingIntent`/`lastHeldDirection` like any
+   * other keydown, and without this the very first tick consumes them and "ghost-moves" Murphy a
+   * cell with no gameplay input. A key still physically held stays inert until re-pressed.
+   */
+  resetMovement(): void {
+    this.heldDirections.clear();
+    this.lastHeldDirection = null;
+    this.pendingIntent = null;
+    this.spaceHeld = false;
+  }
 
   /** Call exactly once per simulation tick. A fresh tap always wins; otherwise falls back to whatever's held. */
   consumeIntent(): Direction | null {
@@ -129,6 +148,8 @@ export class InputController {
       confirm: this.confirmQueued,
       selectPrev: this.selectPrevQueued,
       selectNext: this.selectNextQueued,
+      selectLeft: this.selectLeftQueued,
+      selectRight: this.selectRightQueued,
     };
     this.pauseQueued = false;
     this.restartQueued = false;
@@ -136,6 +157,8 @@ export class InputController {
     this.confirmQueued = false;
     this.selectPrevQueued = false;
     this.selectNextQueued = false;
+    this.selectLeftQueued = false;
+    this.selectRightQueued = false;
     return result;
   }
 }

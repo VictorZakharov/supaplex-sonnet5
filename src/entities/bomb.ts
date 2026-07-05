@@ -2,9 +2,8 @@ import { addPoints, Point } from "../types";
 import { Grid } from "../engine/Grid";
 import { TickEvents } from "../engine/TickCommands";
 import { TerrainType, TimedBombOccupant } from "../tiles/TileType";
-import { CHAIN_BOMB_FUSE_TICKS, FX_TICKS, TIMED_BOMB_FUSE_TICKS } from "../constants";
+import { CHAIN_BLAST_DELAY_TICKS, CHAIN_BOMB_FUSE_TICKS, FX_TICKS, TIMED_BOMB_FUSE_TICKS } from "../constants";
 import { BLAST_OFFSETS } from "./blastOffsets";
-import { destroyElectron } from "./electron";
 
 /** Detonates whatever bomb (impact or timed) occupies `pos`. Chain-reacts neighboring bombs. */
 export function explodeBomb(grid: Grid, pos: Point, events: TickEvents, nextId: () => number): void {
@@ -29,10 +28,13 @@ export function explodeBomb(grid: Grid, pos: Point, events: TickEvents, nextId: 
         events.murphyDied = true;
       } else if (occ.type === "timedBomb") {
         if (occ.fuseTicks > CHAIN_BOMB_FUSE_TICKS) occ.fuseTicks = CHAIN_BOMB_FUSE_TICKS;
-      } else if (occ.type === "bomb") {
-        explodeBomb(grid, p, events, nextId); // impact bombs have no fuse — a blast is itself a collision
-      } else if (occ.type === "electron") {
-        destroyElectron(grid, p, events, nextId);
+      } else if (occ.type === "bomb" || occ.type === "electron" || occ.type === "snikSnak") {
+        // Chain links (impact bombs and enemies) die NOW but their own blasts fire a beat
+        // later, so chains visibly ripple outward (see resolvePendingBlasts). Only the
+        // electron's detonation will seed Infotrons — a Snik-Snak's blast contributes none.
+        if (occ.type !== "bomb") events.destroyedOccupantIds.add(occ.id);
+        grid.removeOccupant(p);
+        cell.pendingBlast = { ticksLeft: CHAIN_BLAST_DELAY_TICKS, electron: occ.type === "electron" };
       } else {
         events.destroyedOccupantIds.add(occ.id);
         grid.removeOccupant(p);
@@ -41,6 +43,27 @@ export function explodeBomb(grid: Grid, pos: Point, events: TickEvents, nextId: 
 
     cell.fx = { kind: "explode", ticksLeft: FX_TICKS.explode };
   }
+}
+
+/**
+ * Fires chain-reaction blasts whose delay has elapsed. Due cells are collected before any of
+ * them detonates, so a fresh marker set by one of this tick's blasts always waits its full
+ * delay — chains ripple one visible step per beat, never collapse into a single tick.
+ */
+export function resolvePendingBlasts(grid: Grid, events: TickEvents, nextId: () => number): void {
+  const due: Point[] = [];
+  const electronDue: Point[] = [];
+  grid.forEach((cell, pos) => {
+    const pending = cell.pendingBlast;
+    if (!pending) return;
+    pending.ticksLeft -= 1;
+    if (pending.ticksLeft > 0) return;
+    delete cell.pendingBlast;
+    due.push(pos);
+    if (pending.electron) electronDue.push(pos);
+  });
+  for (const pos of due) explodeBomb(grid, pos, events, nextId);
+  for (const pos of electronDue) events.electronBursts.push(pos);
 }
 
 /** Ticks down every planted timed bomb, detonating any that reach zero. */

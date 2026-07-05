@@ -13,7 +13,7 @@ import {
 } from "../tiles/TileProps";
 import { explodeBomb } from "./bomb";
 import { destroyElectron } from "./electron";
-import { FX_TICKS, ROLL_ROTATION_STEP } from "../constants";
+import { ROLL_ROTATION_STEP } from "../constants";
 
 function isOpenTarget(cell: Cell): boolean {
   return cell.terrain === TerrainType.Empty && cell.occupant === null;
@@ -71,19 +71,17 @@ function resolveOne(
 
   if (belowCell.occupant?.type === "murphy") {
     if (occ.type === "bomb") {
-      // Bombs are always primed — any collision detonates them, moving or not.
-      events.murphyDied = true;
-      grid.removeOccupant(below);
-      commitMove(grid, pos, below, "falling", claims);
-      explodeBomb(grid, below, events, nextId);
+      // Bombs are always primed — any collision detonates them, moving or not. The bomb
+      // explodes BY ITSELF, in its own cell; its blast flags Murphy below, whose own death
+      // explosion then follows at end-of-tick (PhysicsEngine). Two blasts, per the original.
+      explodeBomb(grid, pos, events, nextId);
       return;
     }
     if (hasWasFalling(occ) && occ.wasFalling) {
-      // Only a rock already in motion has the momentum to be lethal on landing.
+      // Only a rock already in motion has the momentum to be lethal on landing. The rock never
+      // comes to rest: it's left mid-air here, and Murphy's end-of-tick death explosion
+      // (PhysicsEngine) consumes it — just like a rock caught in any other blast.
       events.murphyDied = true;
-      grid.removeOccupant(below);
-      commitMove(grid, pos, below, "falling", claims);
-      belowCell.fx = { kind: "explode", ticksLeft: FX_TICKS.explode };
       return;
     }
     // A resting rock that just lost support can't fall through Murphy — it's blocked exactly like
@@ -91,18 +89,22 @@ function resolveOne(
   }
 
   if (belowCell.occupant?.type === "snikSnak" || belowCell.occupant?.type === "electron") {
+    // The kill is the ENEMY's explosion: the falling object triggers it but adds no blast of
+    // its own — it just never lands, consumed by the enemy's blast like anything else in the
+    // radius. Adjacent enemies/bombs chain (each enemy explodes in turn), and only an
+    // Electron's own blast seeds Infotrons (original Supaplex rules). A falling bomb is the
+    // exception: it explodes BY ITSELF in its own cell, and its blast chains the enemy below.
+    if (occ.type === "bomb") {
+      explodeBomb(grid, pos, events, nextId);
+      return;
+    }
     if (belowCell.occupant.type === "electron") {
       destroyElectron(grid, below, events, nextId);
     } else {
       events.destroyedOccupantIds.add(belowCell.occupant.id);
       grid.removeOccupant(below);
-    }
-    if (occ.type === "bomb") {
-      commitMove(grid, pos, below, "falling", claims);
       explodeBomb(grid, below, events, nextId);
-      return;
     }
-    commitMove(grid, pos, below, "falling", claims);
     return;
   }
 
