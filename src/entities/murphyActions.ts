@@ -15,7 +15,7 @@ import {
 } from "../tiles/TileProps";
 import { isSupported } from "./fallingObjects";
 import { plantTimedBombAt } from "./bomb";
-import { BOMB_PLANT_CHARGE_TICKS, FX_TICKS, INFOTRON_SCORE, TIMED_BOMB_FUSE_TICKS } from "../constants";
+import { BOMB_PLANT_CHARGE_TICKS, CHAIN_BLAST_DELAY_TICKS, FX_TICKS, INFOTRON_SCORE, TIMED_BOMB_FUSE_TICKS } from "../constants";
 
 function isOpenForPush(cell: Cell): boolean {
   return cell.terrain === TerrainType.Empty && cell.occupant === null;
@@ -36,8 +36,18 @@ export function resolveMurphyAction(
   if (!target) return;
   const targetCell = grid.at(target);
 
-  if (isOccupantDeadlyToMurphy(targetCell.occupant)) {
+  const killer = targetCell.occupant;
+  if (killer && isOccupantDeadlyToMurphy(killer)) {
+    // Walking into an enemy kills Murphy — and must kill the enemy too. Its phase runs AFTER
+    // Murphy's, so left alive it could patrol/orbit out of the 3x3 death blast this same tick
+    // and survive. Destroy it here with the standard chain semantics (dies now, own blast a
+    // beat later — an electron's seeds its Infotron shower). The extra +1 on the delay offsets
+    // this tick's resolvePendingBlasts decrement, so the ripple lands on the same beat as an
+    // enemy caught by the end-of-tick death blast would.
     events.murphyDied = true;
+    events.destroyedOccupantIds.add(killer.id);
+    grid.removeOccupant(target);
+    targetCell.pendingBlast = { ticksLeft: CHAIN_BLAST_DELAY_TICKS + 1, electron: killer.type === "electron" };
     return;
   }
 
