@@ -4,8 +4,11 @@ A from-scratch clone of the classic puzzle game Supaplex. TypeScript + Webpack +
 no frameworks. Public MIT-licensed GitHub repo at
 [VictorZakharov/supaplex-sonnet5](https://github.com/VictorZakharov/supaplex-sonnet5) (`origin`,
 branch `master`), live at **https://victorzakharov.github.io/supaplex-sonnet5/**. Changes land via
-branch + PR (left open for the user to merge), never direct pushes to `master`; use `gh` for all
-GitHub operations, including repo settings.
+branch + PR (left open for the user to merge), never direct pushes to `master` — and `master` is
+branch-protected to enforce it (required `build` status check, `enforce_admins`, no force
+pushes/deletions; applied via `gh api .../branches/master/protection`). A PR with a red Build
+check is unmergeable, which is why build.yml must always report (see Deployment below). Use `gh`
+for all GitHub operations, including repo settings.
 
 ## Commands
 
