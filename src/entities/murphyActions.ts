@@ -15,7 +15,7 @@ import {
 } from "../tiles/TileProps";
 import { isSupported } from "./fallingObjects";
 import { plantTimedBombAt } from "./bomb";
-import { FX_TICKS, INFOTRON_SCORE } from "../constants";
+import { BOMB_PLANT_CHARGE_TICKS, FX_TICKS, INFOTRON_SCORE, TIMED_BOMB_FUSE_TICKS } from "../constants";
 
 function isOpenForPush(cell: Cell): boolean {
   return cell.terrain === TerrainType.Empty && cell.occupant === null;
@@ -65,6 +65,14 @@ export function resolveMurphyAction(
     return;
   }
 
+  if (targetCell.occupant?.type === "bombPickup") {
+    grid.removeOccupant(target);
+    state.bombSupply += 1;
+    targetCell.fx = { kind: "collect", ticksLeft: FX_TICKS.collect };
+    grid.moveOccupant(murphy.pos, target, "walking");
+    return;
+  }
+
   if (isOccupantPushable(targetCell.occupant) && isHorizontal(intent)) {
     const beyond = grid.neighbor(target, intent);
     if (beyond && isOpenForPush(grid.at(beyond))) {
@@ -99,43 +107,85 @@ export function resolveMurphyAction(
   // Wall / Hardware / ZonkGenerator / Bug / closed Exit — blocked, no-op.
 }
 
+export function resetBombCharge(murphy: MurphyOccupant): void {
+  murphy.bombCharge = 0;
+  murphy.bombChargeTarget = null;
+}
+
 /**
- * Space + direction: act on the adjacent cell without stepping into it — collect a supported
- * Infotron, dig a Base tile clear, or plant a timed bomb, whichever applies. Anything else
- * (a wall, a pushable object, a port, an enemy) has no effect without actually moving into it.
+ * Space held: act without moving. With a direction, a supported Infotron / bomb pickup / Base tile
+ * on the adjacent cell is collected/dug instantly, exactly as before. If the adjacent cell is open
+ * ground instead (or no direction is held, targeting Murphy's own cell), Space *charges* a bomb
+ * plant: hold for BOMB_PLANT_CHARGE_TICKS and a timed bomb is planted there from Murphy's collected
+ * supply. An under-Murphy plant burns its fuse in the cell and materializes when he steps off.
  */
 export function resolveMurphyLook(
   grid: Grid,
   murphy: MurphyOccupant,
-  intent: Direction,
+  intent: Direction | null,
   gravity: GravityDirection,
   state: GameState,
   spendBombSupply: () => void,
   nextId: () => number,
 ): void {
-  murphy.facing = intent;
+  if (intent !== null) murphy.facing = intent;
 
-  const target = grid.neighbor(murphy.pos, intent);
-  if (!target) return;
+  const target = intent !== null ? grid.neighbor(murphy.pos, intent) : murphy.pos;
+  if (!target) {
+    resetBombCharge(murphy);
+    return;
+  }
   const targetCell = grid.at(target);
 
-  if (targetCell.occupant?.type === "infotron" && isSupported(grid, target, gravity.get())) {
-    grid.removeOccupant(target);
-    state.collectedInfotrons += 1;
-    state.score += INFOTRON_SCORE;
-    targetCell.fx = { kind: "collect", ticksLeft: FX_TICKS.collect };
-    unlockExitIfReady(grid, state);
+  if (intent !== null) {
+    if (targetCell.occupant?.type === "infotron" && isSupported(grid, target, gravity.get())) {
+      grid.removeOccupant(target);
+      state.collectedInfotrons += 1;
+      state.score += INFOTRON_SCORE;
+      targetCell.fx = { kind: "collect", ticksLeft: FX_TICKS.collect };
+      unlockExitIfReady(grid, state);
+      resetBombCharge(murphy);
+      return;
+    }
+
+    if (targetCell.occupant?.type === "bombPickup") {
+      grid.removeOccupant(target);
+      state.bombSupply += 1;
+      targetCell.fx = { kind: "collect", ticksLeft: FX_TICKS.collect };
+      resetBombCharge(murphy);
+      return;
+    }
+
+    if (targetCell.occupant === null && isTerrainDiggable(targetCell.terrain)) {
+      targetCell.terrain = TerrainType.Empty;
+      targetCell.fx = { kind: "dig", ticksLeft: FX_TICKS.dig };
+      resetBombCharge(murphy);
+      return;
+    }
+  }
+
+  const plantable =
+    targetCell.terrain === TerrainType.Empty &&
+    targetCell.plantedBomb === undefined &&
+    (intent !== null ? targetCell.occupant === null : true);
+  if (!plantable || state.bombSupply <= 0) {
+    resetBombCharge(murphy);
     return;
   }
 
-  if (targetCell.occupant === null && isTerrainDiggable(targetCell.terrain)) {
-    targetCell.terrain = TerrainType.Empty;
-    targetCell.fx = { kind: "dig", ticksLeft: FX_TICKS.dig };
-    return;
+  if (!murphy.bombChargeTarget || murphy.bombChargeTarget.x !== target.x || murphy.bombChargeTarget.y !== target.y) {
+    murphy.bombChargeTarget = target;
+    murphy.bombCharge = 0;
   }
+  murphy.bombCharge += 1;
+  if (murphy.bombCharge < BOMB_PLANT_CHARGE_TICKS) return;
 
-  if (targetCell.terrain === TerrainType.Empty && targetCell.occupant === null && state.bombSupply > 0) {
-    plantTimedBombAt(grid, target, spendBombSupply, nextId);
+  resetBombCharge(murphy);
+  spendBombSupply();
+  if (intent !== null) {
+    plantTimedBombAt(grid, target, nextId);
+  } else {
+    targetCell.plantedBomb = { fuseTicks: TIMED_BOMB_FUSE_TICKS };
   }
 }
 

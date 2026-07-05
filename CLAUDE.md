@@ -72,14 +72,21 @@ surfaces as an errored deployment.
 - **Two distinct bomb types** (`src/entities/bomb.ts`): impact bombs (type `"bomb"`, drawn as a
   square 3.5" floppy disk) are pushable/fallable but square-shaped so they never roll, and explode
   the instant they collide with anything (land, or get landed on) — otherwise permanently inert.
-  Timed bombs (type `"timedBomb"`) are planted from a limited per-level `bombSupply` via Space +
-  direction (see below), and carry their own countdown `fuseTicks`. Both chain-react off a nearby
-  explosion via `explodeBomb`'s recursive blast-radius scan.
-- **Space + direction acts on the adjacent cell without moving Murphy there** (`resolveMurphyLook`
-  in `murphyActions.ts`): collects a supported Infotron, clears a Base tile, or plants a timed bomb
-  — whichever applies, instantly, no charge-up delay. This is the *only* way to plant a timed bomb;
-  there is no "hold Space alone" charging mechanic. `PhysicsEngine.tick` branches on
-  `spaceHeld && intent !== null` to call it instead of normal movement.
+  Timed bombs (type `"timedBomb"`) carry their own countdown `fuseTicks`, and Murphy's `bombSupply`
+  **starts at 0 — it's built up by collecting `bombPickup` occupants** (legend char `"b"`, a
+  smaller pulsing red disk) placed in the level; levels don't grant free bombs. Both bomb types
+  chain-react off a nearby explosion via `explodeBomb`'s recursive blast-radius scan (which also
+  shortens a still-planted under-Murphy fuse).
+- **Space is two-speed** (`resolveMurphyLook` in `murphyActions.ts`; `PhysicsEngine.tick` routes
+  *every* `spaceHeld` tick there, with or without a direction). Space + direction acts on the
+  adjacent cell **instantly** for collection-type actions: a supported Infotron, a bomb pickup, or
+  clearing a Base tile. **Planting a timed bomb is a charge-hold instead**: an open-ground target
+  increments `murphy.bombCharge` each held tick (rendered as a filling ring around Murphy) and only
+  plants after `BOMB_PLANT_CHARGE_TICKS`; releasing Space or changing targets resets the charge.
+  Space with **no direction** charges a plant under Murphy's own feet: that variant stores
+  `cell.plantedBomb` (fuse burning while he still stands on it, drawn beneath him) and materializes
+  into a real `timedBomb` occupant when he steps off — or detonates in place, killing him, if the
+  fuse zeroes first.
 - **Roundness is a property of the object, not just the surface.** `isOccupantRounded` in
   `TileProps.ts` gates rolling from *both* sides: a falling object only rolls off a rounded surface
   if the object itself is round-shaped (Zonk/Infotron/OrangeDisk). Bombs are square — they never
@@ -193,3 +200,18 @@ surfaces as an errored deployment.
     post-death/post-win screenshot looks like a fresh level instead of the expected overlay,
     suspect this before doubting the mechanic — verify via `debugState()` immediately after the
     tick that caused it, not via a screenshot taken any time later.
+14. **An enemy's patrol/orbit cells are load-bearing open terrain — a later platform/wall edit can
+    silently pave one over.** The Finale's bonus-Zonk platform (`hline` of Wall) overlapped the
+    Bug ring's NE cell, so the Electron froze forever at the E cell, politely waiting for a walled
+    cell to open (the orbit never skips ahead — see `stepElectron`). When placing *anything* solid
+    near a Bug, check all 8 `RING_OFFSETS` cells stay Empty; if an object needs to rest adjacent
+    to a ring, put it on a single `WallSquare` pedestal (square = nothing rolls off, and one cell
+    can't collide with the ring) rather than a multi-cell platform.
+15. **A gravity flip moves *every* eligible object, not just the one your puzzle is about.** The
+    Finale's corridor-plug Zonk is designed to float away up a chute when the Gravity Port flips
+    gravity — but the Infotron it guarded sat under a round Wall ceiling, so once the plug cell
+    opened, the Infotron rolled sideways into it and floated up the chute *after* the Zonk,
+    relocating the reward the puzzle was guarding. Ceiling cells above must-stay-put objects in a
+    flippable level need `WallSquare` (nothing rolls off it, in either gravity). After any edit
+    involving a Gravity Port, re-simulate the flip and diff every Zonk/Infotron position, not just
+    the puzzle piece.

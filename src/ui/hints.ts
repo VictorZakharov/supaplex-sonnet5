@@ -61,8 +61,20 @@ export const LEVEL_HINTS: readonly HintEntry[][] = [
     },
     {
       swatch: PALETTE.bombArmed,
-      label: "Timed Bomb",
-      desc: "Hold Space + a direction to plant one from your limited supply in that cell without moving, then step away — it detonates itself on a short fuse.",
+      label: "Bomb Pickup",
+      desc: "A dormant bomb disk. Walk into it to add a timed bomb to your supply — you start with none.",
+    },
+    {
+      swatch: PALETTE.fuseSpark,
+      label: "Planting Bombs",
+      desc: "Hold Space + a direction to plant in that cell, or Space alone to plant under your feet. Either way the charge takes a moment — keep holding until the ring completes, then run.",
+    },
+  ],
+  [
+    {
+      swatch: PALETTE.gravityPort,
+      label: "The Plug",
+      desc: "Every mechanic returns. One Infotron hides behind a Zonk you can neither push nor dig around — but gravity works on Zonks, and you know a port that flips it.",
     },
   ],
 ];

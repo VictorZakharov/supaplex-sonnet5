@@ -19,6 +19,10 @@ export function explodeBomb(grid: Grid, pos: Point, events: TickEvents, nextId: 
       cell.terrain = TerrainType.Empty;
     }
 
+    if (cell.plantedBomb && cell.plantedBomb.fuseTicks > CHAIN_BOMB_FUSE_TICKS) {
+      cell.plantedBomb.fuseTicks = CHAIN_BOMB_FUSE_TICKS;
+    }
+
     const occ = cell.occupant;
     if (occ) {
       if (occ.type === "murphy") {
@@ -48,6 +52,32 @@ export function resolveTimedBombs(grid: Grid, events: TickEvents, nextId: () => 
       explodeBomb(grid, bomb.pos, events, nextId);
     }
   }
+
+  // Bombs planted under Murphy's own feet: the fuse burns while he still stands on the cell, and
+  // the disk becomes a real occupant the moment the cell frees up. Reaching zero with Murphy (or
+  // anything else) still on it detonates in place.
+  grid.forEach((cell, pos) => {
+    const planted = cell.plantedBomb;
+    if (!planted) return;
+    planted.fuseTicks -= 1;
+    if (planted.fuseTicks <= 0) {
+      delete cell.plantedBomb;
+      if (cell.occupant?.type === "murphy") events.murphyDied = true;
+      explodeBomb(grid, pos, events, nextId);
+      return;
+    }
+    if (cell.occupant === null) {
+      delete cell.plantedBomb;
+      grid.spawnOccupant(pos, {
+        id: nextId(),
+        type: "timedBomb",
+        pos,
+        prevPos: pos,
+        movementKind: "idle",
+        fuseTicks: planted.fuseTicks,
+      });
+    }
+  });
 }
 
 function isOpenForPlant(grid: Grid, p: Point): boolean {
@@ -55,16 +85,10 @@ function isOpenForPlant(grid: Grid, p: Point): boolean {
   return cell.terrain === TerrainType.Empty && cell.occupant === null;
 }
 
-/** Plants a timed bomb at `target` (if it's open ground) from Murphy's limited supply. */
-export function plantTimedBombAt(
-  grid: Grid,
-  target: Point,
-  spendSupply: () => void,
-  nextId: () => number,
-): void {
+/** Plants a timed bomb at `target` (if it's open ground). Supply is spent by the caller. */
+export function plantTimedBombAt(grid: Grid, target: Point, nextId: () => number): void {
   if (!isOpenForPlant(grid, target)) return;
 
-  spendSupply();
   grid.spawnOccupant(target, {
     id: nextId(),
     type: "timedBomb",

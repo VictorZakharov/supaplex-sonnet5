@@ -14,6 +14,7 @@ export interface LevelData {
   rows: string[];
   legend: Legend;
   timeLimitSeconds: number;
-  /** Timed bombs Murphy can plant this level (hold Space to charge). Omit for levels without the ability. */
+  /** Timed bombs Murphy starts the level already carrying. Usually omitted — supply normally
+   * comes from bomb pickups ("b" legend char) collected in the level itself. */
   bombSupply?: number;
 }

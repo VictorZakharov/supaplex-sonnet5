@@ -5,7 +5,7 @@ import { GameState } from "./GameState";
 import { createClaimSet, createTickEvents } from "./TickCommands";
 import { resolveCollisions } from "./CollisionResolver";
 import { MurphyOccupant } from "../tiles/TileType";
-import { resolveMurphyAction, resolveMurphyLook } from "../entities/murphyActions";
+import { resetBombCharge, resolveMurphyAction, resolveMurphyLook } from "../entities/murphyActions";
 import { resolveFallingObjects } from "../entities/fallingObjects";
 import { resolveSnikSnaks } from "../entities/snikSnak";
 import { resolveElectrons } from "../entities/electron";
@@ -36,7 +36,7 @@ export class PhysicsEngine {
 
     const murphy = findMurphy(this.grid);
     if (murphy) {
-      if (spaceHeld && intent !== null) {
+      if (spaceHeld) {
         resolveMurphyLook(
           this.grid,
           murphy,
@@ -46,7 +46,8 @@ export class PhysicsEngine {
           () => (this.state.bombSupply -= 1),
           this.nextId,
         );
-      } else if (!spaceHeld) {
+      } else {
+        resetBombCharge(murphy);
         resolveMurphyAction(this.grid, murphy, intent, this.gravity, this.state, events);
       }
     }

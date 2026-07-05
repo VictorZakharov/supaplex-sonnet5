@@ -28,7 +28,13 @@ export const LEGEND: Legend = {
       prevPos: pos,
       movementKind: "idle",
       facing: Direction.Down,
+      bombCharge: 0,
+      bombChargeTarget: null,
     }),
+  },
+  b: {
+    terrain: TerrainType.Empty,
+    spawnOccupant: (id, pos) => ({ id, type: "bombPickup", pos, prevPos: pos, movementKind: "idle" }),
   },
   Z: {
     terrain: TerrainType.Empty,
