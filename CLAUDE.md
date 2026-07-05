@@ -47,9 +47,15 @@ succeeds — the one moment the link is guaranteed live — never by `pr-preview
 which finishes ~30–60s before the site actually serves the content (that premature-comment 404
 was a real complaint, don't regress it). `pages.yml` resolves the PR number from
 `workflow_run.pull_requests[0]` with a head-branch lookup fallback, and skips commenting if the
-PR is no longer open. One timing quirk remains: `pages.yml`'s concurrency is queue-not-cancel
-because a PR merge fires Deploy and PR-preview cleanup back-to-back and cancelling mid-deploy
-surfaces as an errored deployment.
+PR is no longer open. `pages.yml`'s concurrency is queue-not-cancel because a PR merge fires
+Deploy and PR-preview cleanup back-to-back and cancelling mid-deploy surfaces as an errored
+deployment. On top of that, the publish job (a) **skips itself when a newer publish run is
+already queued** — racing two Pages deployments at a merge is what tips the Pages service into
+its transient "Deployment failed, try again later" state (every observed failure window started
+at a merge), and a queued run ships the same final gh-pages tree anyway — and (b) **retries
+`deploy-pages` once in-run after a 120s wait** to ride out short transient windows. In-run
+retries are safe (one uploaded artifact); whole-workflow *reruns* are NOT ("Multiple artifacts
+named github-pages") — recover from longer outages with fresh `workflow_dispatch` runs instead.
 
 ## Architecture
 
