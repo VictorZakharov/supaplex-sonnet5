@@ -1,12 +1,12 @@
-import { lerp, Point } from "../types";
+import { lerp } from "../types";
 import { Grid } from "../engine/Grid";
 import { GameState } from "../engine/GameState";
 import { TerrainType } from "../tiles/TileType";
 import { GRID_COLS, GRID_ROWS, HUD_HEIGHT, SIDE_PANEL_WIDTH, TILE_SIZE } from "../constants";
-import { drawFx, drawOccupant, drawTeleportingOccupant, drawTerrain, WallCorners } from "./tileDrawers";
+import { drawFx, drawOccupant, drawTeleportingOccupant, drawTerrain, wallCornerMask } from "./tileDrawers";
 import { drawHUD } from "../ui/HUD";
 import { drawHintPanel } from "../ui/HintPanel";
-import { drawOverlayForStatus, drawStartScreen } from "../ui/ScreenOverlay";
+import { drawOverlayForStatus } from "../ui/ScreenOverlay";
 import { PALETTE } from "./palette";
 import { isOccupantRotating } from "../tiles/TileProps";
 
@@ -14,38 +14,13 @@ export const GRID_WIDTH = GRID_COLS * TILE_SIZE;
 export const CANVAS_WIDTH = GRID_WIDTH + SIDE_PANEL_WIDTH;
 export const CANVAS_HEIGHT = HUD_HEIGHT + GRID_ROWS * TILE_SIZE;
 
-/** Terrain a Wall run visually continues into — no rounding against these, so no background notches between solid tiles. */
-const WALL_CONTINUOUS = new Set<TerrainType>([
-  TerrainType.Wall,
-  TerrainType.WallSquare,
-  TerrainType.Hardware1,
-  TerrainType.Hardware2,
-  TerrainType.ZonkGenerator,
-  TerrainType.Bug,
-]);
-
-function solidAt(grid: Grid, x: number, y: number): boolean {
-  const p: Point = { x, y };
-  if (!grid.inBounds(p)) return true; // off-map counts as solid — border walls stay flush
-  return WALL_CONTINUOUS.has(grid.at(p).terrain);
-}
-
-/** A corner is rounded only where the wall run ends: both neighbors on that side are open. */
-function wallCornerMask(grid: Grid, pos: Point): WallCorners {
-  const left = solidAt(grid, pos.x - 1, pos.y);
-  const right = solidAt(grid, pos.x + 1, pos.y);
-  const up = solidAt(grid, pos.x, pos.y - 1);
-  const down = solidAt(grid, pos.x, pos.y + 1);
-  return [!left && !up, !right && !up, !right && !down, !left && !down];
-}
-
 export class Renderer {
   constructor(private readonly ctx: CanvasRenderingContext2D) {}
 
-  renderStartScreen(selectedLevelIndex: number): void {
+  /** The start menu itself is a DOM overlay (see StartMenu) — the canvas just clears behind it. */
+  renderStartScreen(): void {
     this.ctx.fillStyle = PALETTE.background;
     this.ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-    drawStartScreen(this.ctx, CANVAS_WIDTH, CANVAS_HEIGHT, selectedLevelIndex);
   }
 
   render(grid: Grid, state: GameState, alpha: number): void {

@@ -103,6 +103,10 @@ export interface SnikSnakOccupant extends OccupantBase {
   facing: Direction;
   /** Turned on the previous tick — blocks two left-hugs in a row, so open ground circles instead of spinning in place. */
   turnedLastTick: boolean;
+  /** Continuous orientation in radians (0 = Right, matching directionAngle) — accumulated ±π/2 per
+   * turn so the renderer can ease the scissors through the turn instead of snapping 90°. */
+  rotation: number;
+  prevRotation: number;
 }
 
 export interface ElectronOccupant extends OccupantBase {

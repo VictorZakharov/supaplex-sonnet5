@@ -32,9 +32,10 @@ export function parseLevel(data: LevelData, nextId: () => number): ParsedLevel {
     pending.push({ ch, pos: { x, y } });
     const cell: Cell = { terrain: entry.terrain, occupant: null };
     if (entry.isGenerator) {
+      const interval = data.generatorIntervalTicks ?? DEFAULT_ZONK_GENERATOR_INTERVAL_TICKS;
       cell.generator = {
-        intervalTicks: DEFAULT_ZONK_GENERATOR_INTERVAL_TICKS,
-        ticksUntilNextSpawn: DEFAULT_ZONK_GENERATOR_INTERVAL_TICKS,
+        intervalTicks: interval,
+        ticksUntilNextSpawn: interval,
       };
     }
     return cell;
@@ -82,5 +83,5 @@ export function parseLevel(data: LevelData, nextId: () => number): ParsedLevel {
     throw new Error(`Level "${data.name}" has no Murphy start position`);
   }
 
-  return { grid, murphyStart, infotronsRequired };
+  return { grid, murphyStart, infotronsRequired: infotronsRequired + (data.extraInfotronsRequired ?? 0) };
 }

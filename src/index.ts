@@ -1,5 +1,6 @@
 import "./styles.css";
 import { Game } from "./engine/Game";
+import { createDebugHarness, DebugHarness } from "./engine/debugHarness";
 import { CANVAS_HEIGHT, CANVAS_WIDTH } from "./render/Renderer";
 
 const canvas = document.getElementById("game-canvas");
@@ -17,3 +18,9 @@ canvas.style.height = `${CANVAS_HEIGHT}px`;
 
 const game = new Game(canvas, dpr);
 game.start();
+
+// Debug harness: only exposed under ?debug, so normal play (and prod) stays untouched.
+// Usage: http://localhost:8080/?debug then drive window.__game from the console/Playwright.
+if (new URLSearchParams(window.location.search).has("debug")) {
+  (window as unknown as { __game: DebugHarness }).__game = createDebugHarness(game);
+}

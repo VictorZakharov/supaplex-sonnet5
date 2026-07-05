@@ -1,5 +1,6 @@
-import { Direction } from "../types";
+import { Direction, Point } from "../types";
 import { Cell, FxState } from "../engine/Cell";
+import { Grid } from "../engine/Grid";
 import { Occupant, TerrainType } from "../tiles/TileType";
 import { BOMB_PLANT_CHARGE_TICKS } from "../constants";
 import { PALETTE } from "./palette";
@@ -73,6 +74,31 @@ function drawArmedDisk(ctx: CanvasRenderingContext2D, x: number, y: number, size
 
 /** Which corners of a Wall cell are exposed (no solid neighbor on either adjacent side). */
 export type WallCorners = readonly [tl: boolean, tr: boolean, br: boolean, bl: boolean];
+
+/** Terrain a Wall run visually continues into — no rounding against these, so no background notches between solid tiles. */
+const WALL_CONTINUOUS = new Set<TerrainType>([
+  TerrainType.Wall,
+  TerrainType.WallSquare,
+  TerrainType.Hardware1,
+  TerrainType.Hardware2,
+  TerrainType.ZonkGenerator,
+  TerrainType.Bug,
+]);
+
+function solidAt(grid: Grid, x: number, y: number): boolean {
+  const p: Point = { x, y };
+  if (!grid.inBounds(p)) return true; // off-map counts as solid — border walls stay flush
+  return WALL_CONTINUOUS.has(grid.at(p).terrain);
+}
+
+/** A corner is rounded only where the wall run ends: both neighbors on that side are open. */
+export function wallCornerMask(grid: Grid, pos: Point): WallCorners {
+  const left = solidAt(grid, pos.x - 1, pos.y);
+  const right = solidAt(grid, pos.x + 1, pos.y);
+  const up = solidAt(grid, pos.x, pos.y - 1);
+  const down = solidAt(grid, pos.x, pos.y + 1);
+  return [!left && !up, !right && !up, !right && !down, !left && !down];
+}
 
 /** Traces the cell outline with the exposed corners rounded off; unexposed corners stay square. */
 function roundedCellPath(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, corners: WallCorners): void {
@@ -387,7 +413,9 @@ export function drawOccupant(
       const snip = 0.14 + 0.24 * (0.5 + 0.5 * Math.sin(performance.now() / 110));
       ctx.save();
       ctx.translate(cx, cy);
-      ctx.rotate(directionAngle(occ.facing));
+      // `rotation` is the tick-interpolated orientation (see isOccupantRotating) — the scissors
+      // ease smoothly through each 90° turn instead of snapping to directionAngle(facing).
+      ctx.rotate(rotation);
       const half = (angle: number, color: string): void => {
         ctx.save();
         ctx.rotate(angle);

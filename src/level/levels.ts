@@ -243,9 +243,6 @@ function level6(): LevelData {
 
   // --- Zone B: Disks & Ports (x7-22, y5-9) ---
   c.hline(7, 22, 10, "#"); // floor for B, ceiling for C/D
-  c.set(9, 6, "O"); // free push demo
-  c.set(8, 6, " ");
-  c.set(10, 6, " ");
   c.set(14, 6, ">"); // one-way port
   c.set(15, 6, " "); // landing spot
   c.vline(15, 6, 8, " "); // shaft down from the port landing to the gravity port
@@ -293,6 +290,16 @@ function level6(): LevelData {
   // --- Zone D: Bombs & Generator (x16-22, y11-14) ---
   c.set(18, 10, "N"); // zonk generator built into the dividing wall
   c.vline(18, 11, 14, " "); // its drop chute
+  // The Orange Disk's job: it ignores gravity, so it's the ONLY object that can be pushed over
+  // the generator's spawn cell (17,11 -> 18,11) and hover there, shutting the rain off for good.
+  // A Zonk pushed there would just fall down the chute. Until plugged, landed Zonks roll off the
+  // pile into the (17,13-14)/(19,13-14) tray cells, so the row-13 crossing only seals at the 4th
+  // Zonk (~35s at the 60-tick Finale interval) — enough time to reach and plug it, per the hint.
+  c.set(17, 11, "O");
+  c.set(17, 13, " ");
+  c.set(17, 14, " ");
+  c.set(19, 13, " ");
+  c.set(19, 14, " ");
   c.set(20, 11, "D"); // impact bomb
   c.hline(19, 21, 12, "#");
   c.set(21, 11, " ");
@@ -306,6 +313,14 @@ function level6(): LevelData {
     rows: c.toRows(),
     legend: LEGEND,
     timeLimitSeconds: 400,
+    // Slower rain than the default 25 ticks — the crossing under the chute must stay open long
+    // enough for the player to reach Zone D and plug the generator with the Orange Disk.
+    generatorIntervalTicks: 60,
+    // Killing the Electron is mandatory: its burst fills every open blast cell with Infotrons.
+    // Typical yield is 7-8; 6 is the guaranteed floor — the two worst ring positions have both
+    // the Bug tile and the (13,12) WallSquare pedestal inside the blast (7), and the roaming
+    // Snik-Snak can block one more shower cell if it wanders into the blast area the same tick.
+    extraInfotronsRequired: 6,
   };
 }
 

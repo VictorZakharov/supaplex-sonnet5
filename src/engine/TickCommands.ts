@@ -28,6 +28,13 @@ export interface TickEvents {
   murphyDied: boolean;
   levelWon: boolean;
   destroyedOccupantIds: Set<number>;
+  /**
+   * Centers of Electrons destroyed this tick. Their Infotron showers spawn at end-of-tick
+   * (PhysicsEngine), after ALL of the tick's explosions have finished — otherwise a bomb blast
+   * that killed the Electron would keep iterating and eat part of the just-spawned harvest,
+   * which could soft-lock a level whose required count depends on it (the Finale's does).
+   */
+  electronBursts: Point[];
 }
 
 export function createTickEvents(): TickEvents {
@@ -35,5 +42,6 @@ export function createTickEvents(): TickEvents {
     murphyDied: false,
     levelWon: false,
     destroyedOccupantIds: new Set<number>(),
+    electronBursts: [],
   };
 }

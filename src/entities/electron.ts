@@ -4,7 +4,9 @@ import { ClaimSet, claim, isClaimed, TickEvents } from "../engine/TickCommands";
 import { ElectronOccupant, TerrainType } from "../tiles/TileType";
 import { createInfotron } from "../tiles/occupantFactory";
 import { BLAST_OFFSETS } from "./blastOffsets";
-import { FX_TICKS } from "../constants";
+// Circular with bomb.ts (explodeBomb chains back into destroyElectron for electrons caught in a
+// blast) — safe because both are hoisted function declarations only called at runtime.
+import { explodeBomb } from "./bomb";
 
 /** The 8 cells immediately surrounding a home Bug tile, listed in clockwise order (see stepElectron for actual travel direction). */
 export const RING_OFFSETS: readonly Point[] = [
@@ -54,35 +56,36 @@ function stepElectron(grid: Grid, electron: ElectronOccupant, events: TickEvents
 }
 
 /**
- * Destroying a Bug's Electron bursts it like a small bomb: every open cell in the blast radius
- * (Base gets cleared first) fills with a fresh Infotron, which then falls naturally under
- * gravity — matching original Supaplex's Bug-death-spawns-Infotrons mechanic. Solid terrain and
- * occupied cells are left alone.
+ * Destroying a Bug's Electron is a full explosion followed by an Infotron shower: everything
+ * destructible in the blast radius is destroyed (via `explodeBomb`, which also clears Base,
+ * chain-reacts bombs, and kills Murphy if he's in range). The shower itself is only *recorded*
+ * here — PhysicsEngine spawns it at end-of-tick via `spawnElectronHarvest`, after every blast of
+ * the tick has finished, so no overlapping explosion can eat the fresh Infotrons.
  */
 export function destroyElectron(grid: Grid, pos: Point, events: TickEvents, nextId: () => number): void {
   const occ = grid.at(pos).occupant;
   if (!occ || occ.type !== "electron") return;
   events.destroyedOccupantIds.add(occ.id);
   grid.removeOccupant(pos);
-  burstElectron(grid, pos, nextId);
+
+  explodeBomb(grid, pos, events, nextId);
+  events.electronBursts.push(pos);
 }
 
 /**
- * The Infotron-spawning burst around a just-destroyed Electron's cell. Split out so the
- * falling-object path can move the fallen object into the center cell *first* — the burst
- * naturally skips occupied cells, so the object's landing spot never double-spawns.
+ * End-of-tick Infotron shower for each Electron destroyed this tick: every open cell in the
+ * blast radius — including the Electron's own — fills with a fresh Infotron that then falls
+ * naturally under gravity. Matches original Supaplex's Bug-death-spawns-Infotrons mechanic.
  */
-export function burstElectron(grid: Grid, pos: Point, nextId: () => number): void {
-  for (const offset of BLAST_OFFSETS) {
-    const p = addPoints(pos, offset);
-    if (!grid.inBounds(p)) continue;
-    const cell = grid.at(p);
-    if (cell.terrain === TerrainType.Base) {
-      cell.terrain = TerrainType.Empty;
+export function spawnElectronHarvest(grid: Grid, centers: readonly Point[], nextId: () => number): void {
+  for (const center of centers) {
+    for (const offset of BLAST_OFFSETS) {
+      const p = addPoints(center, offset);
+      if (!grid.inBounds(p)) continue;
+      const cell = grid.at(p);
+      if (cell.terrain === TerrainType.Empty && cell.occupant === null && !cell.plantedBomb) {
+        grid.spawnOccupant(p, createInfotron(nextId(), p));
+      }
     }
-    if (cell.terrain === TerrainType.Empty && cell.occupant === null && !cell.plantedBomb) {
-      grid.spawnOccupant(p, createInfotron(nextId(), p));
-    }
-    cell.fx = { kind: "explode", ticksLeft: FX_TICKS.explode };
   }
 }

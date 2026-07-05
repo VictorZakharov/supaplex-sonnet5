@@ -8,6 +8,7 @@ import { GameState, createInitialGameState } from "./GameState";
 import { PhysicsEngine } from "./PhysicsEngine";
 import { InputController, InputEdgeEvents } from "./InputController";
 import { Renderer } from "../render/Renderer";
+import { MENU_CARD_COLS, StartMenu } from "../ui/StartMenu";
 
 const LIVES_START = 3;
 
@@ -17,6 +18,7 @@ export class Game {
   private readonly renderer: Renderer;
 
   private state: GameState;
+  private readonly startMenu: StartMenu;
   private grid: Grid | null = null;
   private gravity: GravityDirection = new GravityDirection(Direction.Down);
   private physics: PhysicsEngine | null = null;
@@ -26,6 +28,8 @@ export class Game {
   private lastTimestamp: number | null = null;
   private idCounter = 1;
   private selectedLevelIndex = 0;
+  /** Set by the ?debug harness (see debugHarness.ts) to stop automatic ticking during deterministic tests. */
+  private debugFrozen = false;
 
   constructor(canvas: HTMLCanvasElement, dpr = 1) {
     const ctx = canvas.getContext("2d");
@@ -35,6 +39,21 @@ export class Game {
     this.input = new InputController(window);
     this.renderer = new Renderer(this.ctx);
     this.state = createInitialGameState(LIVES_START);
+
+    const menuRoot = document.getElementById("start-menu");
+    if (!menuRoot) throw new Error("#start-menu not found");
+    this.startMenu = new StartMenu(
+      menuRoot,
+      (i) => {
+        this.selectedLevelIndex = i;
+        this.startMenu.setSelected(i);
+      },
+      (i) => {
+        this.selectedLevelIndex = i;
+        this.loadLevel(i);
+      },
+    );
+    this.startMenu.setSelected(this.selectedLevelIndex);
   }
 
   start(): void {
@@ -57,6 +76,7 @@ export class Game {
     this.state.bombSupply = data.bombSupply ?? 0;
     this.state.deathDelayTicks = null;
     this.state.status = "playing";
+    this.input.resetMovement();
     this.physics = new PhysicsEngine(this.grid, this.gravity, this.state, this.nextOccupantId);
     this.accumulatorMs = 0;
     this.wallClockAccumulatorMs = 0;
@@ -70,17 +90,19 @@ export class Game {
     const events = this.input.consumeEdgeEvents();
 
     switch (this.state.status) {
-      case "start":
-        if (events.selectPrev) {
-          this.selectedLevelIndex = (this.selectedLevelIndex - 1 + LEVELS.length) % LEVELS.length;
-        }
-        if (events.selectNext) {
-          this.selectedLevelIndex = (this.selectedLevelIndex + 1) % LEVELS.length;
-        }
+      case "start": {
+        // Card-grid navigation: Left/Right step within a row, Up/Down jump a whole row.
+        const count = LEVELS.length;
+        if (events.selectPrev) this.selectedLevelIndex = (this.selectedLevelIndex - MENU_CARD_COLS + count) % count;
+        if (events.selectNext) this.selectedLevelIndex = (this.selectedLevelIndex + MENU_CARD_COLS) % count;
+        if (events.selectLeft) this.selectedLevelIndex = (this.selectedLevelIndex - 1 + count) % count;
+        if (events.selectRight) this.selectedLevelIndex = (this.selectedLevelIndex + 1) % count;
+        this.startMenu.setSelected(this.selectedLevelIndex);
         if (events.confirm) this.loadLevel(this.selectedLevelIndex);
         break;
+      }
       case "playing":
-        this.updatePlaying(dt, events);
+        if (!this.debugFrozen) this.updatePlaying(dt, events);
         break;
       case "paused":
         if (events.pause) this.state.status = "playing";
@@ -105,9 +127,11 @@ export class Game {
     }
 
     if (this.state.status === "start") {
-      this.renderer.renderStartScreen(this.selectedLevelIndex);
-    } else if (this.grid) {
-      this.renderer.render(this.grid, this.state, this.accumulatorMs / TICK_MS);
+      this.startMenu.show();
+      this.renderer.renderStartScreen();
+    } else {
+      this.startMenu.hide();
+      if (this.grid) this.renderer.render(this.grid, this.state, this.accumulatorMs / TICK_MS);
     }
 
     requestAnimationFrame(this.loop);

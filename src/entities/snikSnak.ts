@@ -16,6 +16,20 @@ function isOpenCell(cell: Cell): boolean {
   return cell.terrain === TerrainType.Empty && cell.occupant === null;
 }
 
+const QUARTER_TURN = Math.PI / 2;
+
+function turnLeft(snik: SnikSnakOccupant): void {
+  snik.facing = rotateCCW(snik.facing);
+  snik.rotation -= QUARTER_TURN;
+  snik.turnedLastTick = true;
+}
+
+function turnRight(snik: SnikSnakOccupant): void {
+  snik.facing = rotateCW(snik.facing);
+  snik.rotation += QUARTER_TURN;
+  snik.turnedLastTick = true;
+}
+
 /**
  * Original-style facing-driven scissors: everything happens in the faced cell, and turning is a
  * visible 90°-per-tick rotation, never an instant snap. Per tick, exactly one of:
@@ -35,8 +49,8 @@ function stepSnikSnak(grid: Grid, snik: SnikSnakOccupant, events: TickEvents, cl
   for (const dir of ALL_DIRECTIONS) {
     const target = grid.neighbor(snik.pos, dir);
     if (target && grid.at(target).occupant?.type === "murphy") {
-      snik.facing = dir === rotateCW(snik.facing) ? dir : rotateCCW(snik.facing);
-      snik.turnedLastTick = true;
+      if (dir === rotateCW(snik.facing)) turnRight(snik);
+      else turnLeft(snik);
       return;
     }
   }
@@ -46,8 +60,7 @@ function stepSnikSnak(grid: Grid, snik: SnikSnakOccupant, events: TickEvents, cl
   const leftDir = rotateCCW(snik.facing);
   const left = grid.neighbor(snik.pos, leftDir);
   if (!snik.turnedLastTick && left && isOpenCell(grid.at(left))) {
-    snik.facing = leftDir;
-    snik.turnedLastTick = true;
+    turnLeft(snik);
     return;
   }
 
@@ -62,6 +75,6 @@ function stepSnikSnak(grid: Grid, snik: SnikSnakOccupant, events: TickEvents, cl
   // side, right first. A dead end resolves itself — two left rotations reach the way back.
   const rightDir = rotateCW(snik.facing);
   const right = grid.neighbor(snik.pos, rightDir);
-  snik.facing = right && isOpenCell(grid.at(right)) ? rightDir : leftDir;
-  snik.turnedLastTick = true;
+  if (right && isOpenCell(grid.at(right))) turnRight(snik);
+  else turnLeft(snik);
 }

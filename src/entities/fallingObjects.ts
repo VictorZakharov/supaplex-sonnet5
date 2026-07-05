@@ -12,7 +12,7 @@ import {
   isTerrainRounded,
 } from "../tiles/TileProps";
 import { explodeBomb } from "./bomb";
-import { burstElectron } from "./electron";
+import { destroyElectron } from "./electron";
 import { blastFx } from "./blastOffsets";
 import { ROLL_ROTATION_STEP } from "../constants";
 
@@ -91,18 +91,24 @@ function resolveOne(
     // solid ground below, so it falls through to the rolling check (or just stays put) instead.
   }
 
-  if (belowCell.occupant?.type === "snikSnak" || belowCell.occupant?.type === "electron") {
-    const wasElectron = belowCell.occupant.type === "electron";
+  if (belowCell.occupant?.type === "snikSnak") {
     events.destroyedOccupantIds.add(belowCell.occupant.id);
     grid.removeOccupant(below);
-    // Move the fallen object in *before* the electron burst, so the burst's Infotron fill
-    // skips the landing cell instead of double-occupying it.
     commitMove(grid, pos, below, "falling", claims);
-    if (occ.type === "bomb") {
-      explodeBomb(grid, below, events, nextId);
-      return;
+    if (occ.type === "bomb") explodeBomb(grid, below, events, nextId);
+    return;
+  }
+
+  if (belowCell.occupant?.type === "electron") {
+    // The impact is a real explosion: the falling object never lands — it's consumed along with
+    // everything destructible in the radius, then the cleared cells fill with Infotrons (see
+    // destroyElectron). A falling bomb isn't pre-removed: it's inside the blast, so the chain
+    // detonates it for a proper double explosion.
+    if (occ.type !== "bomb") {
+      events.destroyedOccupantIds.add(occ.id);
+      grid.removeOccupant(pos);
     }
-    if (wasElectron) burstElectron(grid, below, nextId);
+    destroyElectron(grid, below, events, nextId);
     return;
   }
 

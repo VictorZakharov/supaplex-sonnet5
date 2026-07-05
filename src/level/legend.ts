@@ -69,6 +69,8 @@ export const LEGEND: Legend = {
       movementKind: "idle",
       facing: Direction.Right,
       turnedLastTick: false,
+      rotation: 0,
+      prevRotation: 0,
     }),
   },
   e: {
