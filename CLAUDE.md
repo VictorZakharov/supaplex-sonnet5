@@ -1,9 +1,11 @@
 # Supaplex Clone
 
 A from-scratch clone of the classic puzzle game Supaplex. TypeScript + Webpack + Canvas2D,
-no frameworks. Git repo, pushed to a private GitHub repo at
+no frameworks. Public MIT-licensed GitHub repo at
 [VictorZakharov/supaplex-sonnet5](https://github.com/VictorZakharov/supaplex-sonnet5) (`origin`,
-branch `master`).
+branch `master`), live at **https://victorzakharov.github.io/supaplex-sonnet5/**. Changes land via
+branch + PR (left open for the user to merge), never direct pushes to `master`; use `gh` for all
+GitHub operations, including repo settings.
 
 ## Commands
 
@@ -14,6 +16,32 @@ branch `master`).
   browser testing against the dev server.
 - Windows quirk: if port 8080 is already bound from a previous session, find and kill it first:
   `netstat -ano | grep ":8080" | grep LISTENING | awk '{print $5}'` then `taskkill //F //PID <pid>`.
+
+## Deployment (GitHub Pages)
+
+Four workflows in `.github/workflows/`, chained deliberately:
+
+- `build.yml` — typecheck + build, required check on every PR. Uses dorny/paths-filter to skip the
+  expensive steps on docs-only changes *instead of* `paths-ignore` on the trigger, so the required
+  check still reports (a `paths-ignore`d required check would leave docs PRs unmergeable).
+- `deploy.yml` — on master push, builds and commits `dist/` to the `gh-pages` branch root
+  (JamesIves action, `clean-exclude: pr-preview`).
+- `pr-preview.yml` — on PR open/sync/close, deploys to `gh-pages`/`pr-preview/pr-N/` and posts a
+  sticky comment link (rossjrw action; removes the folder when the PR closes — a merged PR's
+  preview 404ing is correct, not a bug).
+- `pages.yml` — the actual publisher: `workflow_run` on Deploy/PR-preview completion (plus manual
+  `workflow_dispatch`) checks out the whole `gh-pages` tree and deploys it via
+  `actions/upload-pages-artifact` + `actions/deploy-pages`.
+
+**Why the indirection exists:** the repo's Pages `build_type` is `workflow`, NOT the default legacy
+branch-serving mode — the legacy Jekyll pipeline wedged permanently (internal deploy job polling an
+empty status forever) after the repo flipped private→public, and switching to Actions-native
+publishing was the fix. Don't "simplify" by reverting to branch-based Pages serving, and don't make
+`pages.yml` trigger `on: push` to `gh-pages` (push-event workflows run from the pushed branch's own
+tree, which the deploy actions wipe — `workflow_run` runs from `master`'s copy, which is the point).
+Two timing quirks: the preview bot comment's link 404s for ~30–60s until the chained Publish Pages
+run finishes; and `pages.yml`'s concurrency is queue-not-cancel because a PR merge fires Deploy and
+PR-preview cleanup back-to-back and cancelling mid-deploy surfaces as an errored deployment.
 
 ## Architecture
 
