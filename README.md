@@ -11,6 +11,13 @@ Webpack, and Canvas2D — no game frameworks or external assets.
 
 ![Gameplay screenshot](docs/screenshot.png)
 
+<details>
+<summary>Level select menu</summary>
+
+![Level select menu](docs/screenshot-menu.png)
+
+</details>
+
 > **Disclaimer:** This is an independent, unofficial fan project. "Supaplex" and its
 > original game design belong to their respective rights holders. Nothing here reuses
 > any code or assets from the original game — every mechanic, sprite, and level is
