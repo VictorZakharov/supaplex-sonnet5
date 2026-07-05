@@ -1,4 +1,4 @@
-import { ALL_DIRECTIONS, rotateCCW, rotateCW } from "../types";
+import { rotateCCW, rotateCW } from "../types";
 import { Grid } from "../engine/Grid";
 import { ClaimSet, claim, isClaimed, TickEvents } from "../engine/TickCommands";
 import { Cell } from "../engine/Cell";
@@ -16,6 +16,10 @@ function isOpenCell(cell: Cell): boolean {
   return cell.terrain === TerrainType.Empty && cell.occupant === null;
 }
 
+function isEnemy(cell: Cell | null): boolean {
+  return cell?.occupant?.type === "snikSnak" || cell?.occupant?.type === "electron";
+}
+
 const QUARTER_TURN = Math.PI / 2;
 
 function turnLeft(snik: SnikSnakOccupant): void {
@@ -30,64 +34,68 @@ function turnRight(snik: SnikSnakOccupant): void {
   snik.turnedLastTick = true;
 }
 
+/** Turn toward the hugged wall's side. */
+function hugTurn(snik: SnikSnakOccupant): void {
+  if (snik.hugRight) turnRight(snik);
+  else turnLeft(snik);
+}
+
+/** Turn away from the hugged wall's side. */
+function offTurn(snik: SnikSnakOccupant): void {
+  if (snik.hugRight) turnLeft(snik);
+  else turnRight(snik);
+}
+
+/** Flip the hug side and start the two-turn about-face — the ONLY ways a patrol reverses. */
+function reversePatrol(snik: SnikSnakOccupant): void {
+  snik.hugRight = !snik.hugRight;
+  snik.retreatTurns = 2;
+}
+
 /**
- * Original-style facing-driven scissors. The core rule: Murphy only dies when the scissors are
- * actually MOVING into his cell — either a committed telegraph snip, or a patrol step forward.
- * Merely being faced by a wall-hugger that's about to turn away is safe. Turning is always a
- * visible 90°-per-tick rotation, never an instant snap. Per tick, exactly one of:
- * committed attack lands → snip (death explosion); Murphy beside → rotate one step toward him
- * and commit (the telegraph — one beat to dodge); prey dodged → about-face retreat (two turns);
- * open left → turn left (the wall-hug bias); Murphy ahead where patrol would step → snip;
- * open ahead → move there; blocked → rotate toward an open side.
+ * Original-style wall-hugging scissors, fully predictable: they never seek Murphy — standing
+ * beside (or even dead ahead of) one is safe as long as its patrol wouldn't step into your cell.
+ * The ONLY kill is the patrol's own forward step finding Murphy in the faced cell, and even that
+ * has a one-beat wind-up (`attacking`): dodge it and the scissors reverse — hug side flips and
+ * they about-face, the classic trick. The hug side otherwise never changes, except when the
+ * patrol bumps into another enemy. Turning is always a visible 90° per tick, never a snap.
  */
 function stepSnikSnak(grid: Grid, snik: SnikSnakOccupant, events: TickEvents, claims: ClaimSet): void {
   const ahead = grid.neighbor(snik.pos, snik.facing);
   const aheadCell = ahead ? grid.at(ahead) : null;
   const aheadMurphy = aheadCell?.occupant?.type === "murphy";
 
-  // A committed attack (telegraphed last tick) lands: this IS the scissors moving into Murphy.
+  // A wound-up strike from last tick: Murphy still in the faced cell → the step lands on him.
   if (snik.attacking && aheadMurphy) {
     events.murphyDied = true;
     return;
   }
 
-  // Telegraph: Murphy beside the scissors — rotate one step toward him and commit to the snip.
-  for (const dir of ALL_DIRECTIONS) {
-    if (dir === snik.facing) continue;
-    const target = grid.neighbor(snik.pos, dir);
-    if (target && grid.at(target).occupant?.type === "murphy") {
-      if (dir === rotateCW(snik.facing)) turnRight(snik);
-      else turnLeft(snik);
-      snik.attacking = true;
-      return;
-    }
-  }
-
-  // Prey escaped mid-telegraph: the classic about-face — the scissors turn tail and walk away,
-  // as two visible 90° rotations (never a 180° snap).
+  // Murphy dodged the wind-up: the player's reversal trick.
   if (snik.attacking) {
     snik.attacking = false;
-    snik.retreatTurns = 2;
+    reversePatrol(snik);
   }
   if (snik.retreatTurns > 0) {
     snik.retreatTurns -= 1;
-    turnLeft(snik);
+    hugTurn(snik); // two hug-side turns = about-face, ending with the wall on the new hug side
     return;
   }
 
-  // Left-hand hug: turn toward an open left cell — but never twice in a row, or open ground
+  // Hug turn: turn toward an open hug-side cell — but never twice in a row, or open ground
   // would make them spin in place instead of patrolling little circles like the original.
   // This fires even with Murphy dead ahead: a wall-hugger turning away doesn't snip.
-  const leftDir = rotateCCW(snik.facing);
-  const left = grid.neighbor(snik.pos, leftDir);
-  if (!snik.turnedLastTick && left && isOpenCell(grid.at(left))) {
-    turnLeft(snik);
+  const hugDir = snik.hugRight ? rotateCW(snik.facing) : rotateCCW(snik.facing);
+  const hugCell = grid.neighbor(snik.pos, hugDir);
+  if (!snik.turnedLastTick && hugCell && isOpenCell(grid.at(hugCell))) {
+    hugTurn(snik);
     return;
   }
 
-  // Patrol steps forward — and if Murphy is what's ahead, stepping into him is the kill.
+  // Patrol steps forward. Murphy in the faced cell means the step lands on him — wind up for
+  // one beat (his dodge window) instead of moving.
   if (aheadMurphy) {
-    events.murphyDied = true;
+    snik.attacking = true;
     return;
   }
   if (ahead && aheadCell && isOpenCell(aheadCell) && !isClaimed(claims, ahead)) {
@@ -97,10 +105,18 @@ function stepSnikSnak(grid: Grid, snik: SnikSnakOccupant, events: TickEvents, cl
     return;
   }
 
-  // Blocked ahead (and a left turn was declined or blocked): rotate one step toward an open
-  // side, right first. A dead end resolves itself — two left rotations reach the way back.
-  const rightDir = rotateCW(snik.facing);
-  const right = grid.neighbor(snik.pos, rightDir);
-  if (right && isOpenCell(grid.at(right))) turnRight(snik);
-  else turnLeft(snik);
+  // Ran head-on into another enemy: the other patrol-reversal trigger.
+  if (isEnemy(aheadCell)) {
+    reversePatrol(snik);
+    snik.retreatTurns -= 1;
+    hugTurn(snik);
+    return;
+  }
+
+  // Blocked ahead (and a hug turn was declined or blocked): rotate one step toward an open
+  // side, off-side first. A dead end resolves itself — two hug turns reach the way back.
+  const offDir = snik.hugRight ? rotateCCW(snik.facing) : rotateCW(snik.facing);
+  const off = grid.neighbor(snik.pos, offDir);
+  if (off && isOpenCell(grid.at(off))) offTurn(snik);
+  else hugTurn(snik);
 }

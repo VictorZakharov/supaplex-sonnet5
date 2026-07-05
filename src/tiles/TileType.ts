@@ -101,12 +101,14 @@ export interface BombPickupOccupant extends OccupantBase {
 export interface SnikSnakOccupant extends OccupantBase {
   type: "snikSnak";
   facing: Direction;
-  /** Turned on the previous tick — blocks two left-hugs in a row, so open ground circles instead of spinning in place. */
+  /** Turned on the previous tick — blocks two hug-turns in a row, so open ground circles instead of spinning in place. */
   turnedLastTick: boolean;
-  /** Mid-telegraph: turned toward an adjacent Murphy last tick and will snip if he's still there. */
+  /** Coiled to strike: the patrol's forward step found Murphy in the faced cell last tick — one beat to dodge. */
   attacking: boolean;
-  /** Remaining forced 90° turns after prey escaped a telegraph — two of them = the classic about-face retreat. */
+  /** Remaining forced 90° turns of an about-face (dodged strike / bumped another enemy). */
   retreatTurns: number;
+  /** Which wall it hugs. Flips ONLY on a dodged strike or on bumping another enemy — otherwise the patrol is fully predictable. */
+  hugRight: boolean;
   /** Continuous orientation in radians (0 = Right, matching directionAngle) — accumulated ±π/2 per
    * turn so the renderer can ease the scissors through the turn instead of snapping 90°. */
   rotation: number;

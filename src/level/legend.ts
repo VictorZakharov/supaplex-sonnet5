@@ -71,6 +71,7 @@ export const LEGEND: Legend = {
       turnedLastTick: false,
       attacking: false,
       retreatTurns: 0,
+      hugRight: false,
       rotation: 0,
       prevRotation: 0,
     }),

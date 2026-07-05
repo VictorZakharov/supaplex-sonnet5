@@ -80,21 +80,22 @@ surfaces as an errored deployment.
 - **Full mechanics, not a simplified subset.** Zonk Generators and Timer Bombs are intentionally
   included even though the original 1991 Supaplex didn't have them — this was an explicit scope
   decision, not a mistake. Don't "fix" them away.
-- **Enemies kill only when MOVING into Murphy — never by facing or adjacency alone.** The
-  Snik-Snak (`snikSnak.ts`) per tick does exactly one of: land a committed snip (`attacking` — it
-  turned toward an adjacent Murphy last tick, and the snip IS its move into his cell); rotate one
-  90° step toward an adjacent Murphy and commit (the telegraph — one tick to dodge); about-face
-  after a dodged snip (`retreatTurns`, two visible turns, then it walks away — the classic
-  reversal); left-hug turn (`turnedLastTick` blocks two in a row so open ground yields circles,
-  not spinning) — this fires even with Murphy dead ahead, because a wall-hugger turning away is
-  harmless; step forward, where Murphy being the cell ahead is the patrol kill; or rotate toward
-  an open side when blocked. Turning is always ±90° per tick via the continuous
-  `rotation`/`prevRotation` angle the renderer interpolates (`isOccupantRotating`, like Zonk
-  roll-spin) — never snap `facing` without adjusting `rotation` alongside. Blades = front =
-  deadly, handle rings = back. The Electron mirrors the same rules invisibly: one `attacking`
-  coil-up tick before it strikes a Murphy in its next ring cell, and a dodge reverses
-  `orbitStep` — but the coil-up is deliberately NOT rendered; that blind beat is the risk the
-  electron adds (base orbit stays counterclockwise — see gotcha 5).
+- **Enemies never seek Murphy — the only kill is their own patrol step landing on him.** The
+  Snik-Snak (`snikSnak.ts`) is a pure wall-hugger (`hugRight`, default left) and fully
+  predictable: standing anywhere off its route is safe, adjacency and facing alone never kill.
+  Per tick exactly one of: land a wound-up strike (`attacking` — last tick's forward step found
+  Murphy in the faced cell; the one-beat dodge window); reverse after a dodge (`reversePatrol`:
+  hug side flips + `retreatTurns` two-turn about-face — a dodge-trick or bumping another enemy
+  are the ONLY things that ever change the hug side); hug-side turn (`turnedLastTick` blocks two
+  in a row, so open ground circles) — fires even with Murphy dead ahead, turning away is
+  harmless; wind up instead of stepping when Murphy is the forward cell; step forward; or rotate
+  toward an open side (off-side first) when blocked by walls/objects. Turning is always ±90° per
+  tick via the continuous `rotation`/`prevRotation` angle the renderer interpolates
+  (`isOccupantRotating`, like Zonk roll-spin) — never snap `facing` without adjusting `rotation`
+  alongside. Blades = front = deadly, handle rings = back. The Electron mirrors the same rules on
+  its orbit ring: one `attacking` coil-up tick before striking a Murphy in its next ring cell,
+  and a dodge reverses `orbitStep` — but its coil-up is deliberately NOT rendered; that blind
+  beat is the risk the electron adds (base orbit stays counterclockwise — see gotcha 5).
 - **Murphy's death is two-phase** (`MURPHY_DEATH_DELAY_TICKS`): any `events.murphyDied` removes him
   from the grid with a REAL end-of-tick `explodeBomb` blast (`PhysicsEngine`) — the adjacent enemy
   that killed him dies in it too (an Electron killer chain-bursts) — then the world keeps

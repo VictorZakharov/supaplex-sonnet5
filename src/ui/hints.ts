@@ -45,7 +45,7 @@ export const LEVEL_HINTS: readonly HintEntry[][] = [
     {
       swatch: PALETTE.snikSnak,
       label: "Snik-Snak",
-      desc: "Roams blade-first, hugging the wall on its left, and only kills by moving into you. Step beside it and it rotates toward you first — dodge in that beat and it turns tail. A wall-hugger passing you head-on just turns away. Destroyed by a falling object.",
+      desc: "Roams blade-first, forever hugging one wall — its route is fully predictable, and standing anywhere off it is safe. It strikes only when its own patrol steps into you, with a beat of wind-up: dodge it and it reverses, hugging the other wall. Destroyed by a falling object.",
     },
   ],
   [
