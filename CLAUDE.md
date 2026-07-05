@@ -26,9 +26,11 @@ Four workflows in `.github/workflows/`, chained deliberately:
   check still reports (a `paths-ignore`d required check would leave docs PRs unmergeable).
 - `deploy.yml` — on master push, builds and commits `dist/` to the `gh-pages` branch root
   (JamesIves action, `clean-exclude: pr-preview`).
-- `pr-preview.yml` — on PR open/sync/close, deploys to `gh-pages`/`pr-preview/pr-N/` and posts a
-  sticky comment link (rossjrw action; removes the folder when the PR closes — a merged PR's
-  preview 404ing is correct, not a bug).
+- `pr-preview.yml` — on PR open/sync/close, deploys to `gh-pages`/`pr-preview/pr-N/` (rossjrw
+  action with `comment: false`; removes the folder when the PR closes — a merged PR's preview
+  404ing is correct, not a bug). It only posts the sticky PR comment itself on *failure* (build/
+  deploy broke) or on close ("preview removed"); the ✅ success comment is deliberately NOT posted
+  here, because at this point the preview isn't live yet.
 - `pages.yml` — the actual publisher: `workflow_run` on Deploy/PR-preview completion (plus manual
   `workflow_dispatch`) checks out the whole `gh-pages` tree and deploys it via
   `actions/upload-pages-artifact` + `actions/deploy-pages`.
@@ -39,9 +41,15 @@ empty status forever) after the repo flipped private→public, and switching to 
 publishing was the fix. Don't "simplify" by reverting to branch-based Pages serving, and don't make
 `pages.yml` trigger `on: push` to `gh-pages` (push-event workflows run from the pushed branch's own
 tree, which the deploy actions wipe — `workflow_run` runs from `master`'s copy, which is the point).
-Two timing quirks: the preview bot comment's link 404s for ~30–60s until the chained Publish Pages
-run finishes; and `pages.yml`'s concurrency is queue-not-cancel because a PR merge fires Deploy and
-PR-preview cleanup back-to-back and cancelling mid-deploy surfaces as an errored deployment.
+The sticky preview-status PR comment (`<!-- pr-preview-status -->` marker, shared by both
+workflows so states overwrite each other) is posted by `pages.yml` *after* `deploy-pages`
+succeeds — the one moment the link is guaranteed live — never by `pr-preview.yml` on success,
+which finishes ~30–60s before the site actually serves the content (that premature-comment 404
+was a real complaint, don't regress it). `pages.yml` resolves the PR number from
+`workflow_run.pull_requests[0]` with a head-branch lookup fallback, and skips commenting if the
+PR is no longer open. One timing quirk remains: `pages.yml`'s concurrency is queue-not-cancel
+because a PR merge fires Deploy and PR-preview cleanup back-to-back and cancelling mid-deploy
+surfaces as an errored deployment.
 
 ## Architecture
 
