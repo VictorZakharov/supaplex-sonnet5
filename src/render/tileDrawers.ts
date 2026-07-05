@@ -72,6 +72,43 @@ function drawArmedDisk(ctx: CanvasRenderingContext2D, x: number, y: number, size
   ctx.fill();
 }
 
+function paintBase(ctx: CanvasRenderingContext2D, x: number, y: number, size: number): void {
+  ctx.fillStyle = PALETTE.base;
+  ctx.fillRect(x, y, size, size);
+  ctx.fillStyle = PALETTE.baseDot;
+  for (let i = 0; i < 4; i++) {
+    const dx = ((i * 37) % 10) / 10;
+    const dy = ((i * 53) % 10) / 10;
+    ctx.fillRect(x + 4 + dx * (size - 12), y + 4 + dy * (size - 12), 3, 3);
+  }
+}
+
+/**
+ * The not-yet-eaten remainder of a Base tile Murphy is currently walking into — purely visual
+ * (the cell's terrain is already Empty in the grid). The dirt shrinks away from his entry edge
+ * as the walk interpolates: `dx/dy` is his travel direction, `progress` the walk fraction (0-1).
+ */
+export function drawBaseRemainder(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  size: number,
+  dx: number,
+  dy: number,
+  progress: number,
+): void {
+  const eaten = size * Math.min(1, Math.max(0, progress));
+  ctx.save();
+  ctx.beginPath();
+  if (dx > 0) ctx.rect(x + eaten, y, size - eaten, size); // entering from the left edge
+  else if (dx < 0) ctx.rect(x, y, size - eaten, size); // from the right edge
+  else if (dy > 0) ctx.rect(x, y + eaten, size, size - eaten); // from the top edge
+  else ctx.rect(x, y, size, size - eaten); // from the bottom edge
+  ctx.clip();
+  paintBase(ctx, x, y, size); // full-tile coords, so the dot pattern doesn't shift while shrinking
+  ctx.restore();
+}
+
 /** Which corners of a Wall cell are exposed (no solid neighbor on either adjacent side). */
 export type WallCorners = readonly [tl: boolean, tr: boolean, br: boolean, bl: boolean];
 
@@ -179,14 +216,7 @@ export function drawTerrain(
       ctx.strokeRect(x + 4, y + 4, size - 8, size - 8);
       break;
     case TerrainType.Base:
-      ctx.fillStyle = PALETTE.base;
-      ctx.fillRect(x, y, size, size);
-      ctx.fillStyle = PALETTE.baseDot;
-      for (let i = 0; i < 4; i++) {
-        const dx = ((i * 37) % 10) / 10;
-        const dy = ((i * 53) % 10) / 10;
-        ctx.fillRect(x + 4 + dx * (size - 12), y + 4 + dy * (size - 12), 3, 3);
-      }
+      paintBase(ctx, x, y, size);
       break;
     case TerrainType.PortUp:
       drawArrow(ctx, x, y, size, Direction.Up, PALETTE.port);

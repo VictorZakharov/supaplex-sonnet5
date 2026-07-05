@@ -2,8 +2,15 @@ import { lerp } from "../types";
 import { Grid } from "../engine/Grid";
 import { GameState } from "../engine/GameState";
 import { TerrainType } from "../tiles/TileType";
-import { GRID_COLS, GRID_ROWS, HUD_HEIGHT, SIDE_PANEL_WIDTH, TILE_SIZE } from "../constants";
-import { drawFx, drawOccupant, drawTeleportingOccupant, drawTerrain, wallCornerMask } from "./tileDrawers";
+import { FX_TICKS, GRID_COLS, GRID_ROWS, HUD_HEIGHT, SIDE_PANEL_WIDTH, TILE_SIZE } from "../constants";
+import {
+  drawBaseRemainder,
+  drawFx,
+  drawOccupant,
+  drawTeleportingOccupant,
+  drawTerrain,
+  wallCornerMask,
+} from "./tileDrawers";
 import { drawHUD } from "../ui/HUD";
 import { drawHintPanel } from "../ui/HintPanel";
 import { drawOverlayForStatus } from "../ui/ScreenOverlay";
@@ -47,6 +54,29 @@ export class Renderer {
       const ix = lerp(occ.prevPos.x, occ.pos.x, alpha) * TILE_SIZE;
       const iy = HUD_HEIGHT + lerp(occ.prevPos.y, occ.pos.y, alpha) * TILE_SIZE;
       const rotation = isOccupantRotating(occ) ? lerp(occ.prevRotation, occ.rotation, alpha) : 0;
+
+      // Murphy mid-walk into a just-dug dirt cell: redraw the not-yet-covered part of the dirt
+      // so it visibly gets eaten as he slides in, instead of vanishing at the tick boundary.
+      // Purely cosmetic — the grid already holds Empty (the dig fx marks the freshly-dug cell).
+      const destFx = grid.at(occ.pos).fx;
+      if (
+        occ.type === "murphy" &&
+        occ.movementKind === "walking" &&
+        (occ.pos.x !== occ.prevPos.x || occ.pos.y !== occ.prevPos.y) &&
+        destFx?.kind === "dig" &&
+        destFx.ticksLeft === FX_TICKS.dig // dug THIS tick — not a leftover from an earlier Space-dig
+      ) {
+        drawBaseRemainder(
+          ctx,
+          occ.pos.x * TILE_SIZE,
+          HUD_HEIGHT + occ.pos.y * TILE_SIZE,
+          TILE_SIZE,
+          occ.pos.x - occ.prevPos.x,
+          occ.pos.y - occ.prevPos.y,
+          alpha,
+        );
+      }
+
       drawOccupant(ctx, occ, ix, iy, TILE_SIZE, rotation);
     }
 
