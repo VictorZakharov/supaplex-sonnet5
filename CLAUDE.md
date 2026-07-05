@@ -101,8 +101,9 @@ surfaces as an errored deployment.
   simulating while `state.deathDelayTicks` counts down in `resolveCollisions`, and only then does
   the status flip to `dead`/`gameOver`. Lives are decremented when the countdown ends, not when
   the kill lands. Don't "simplify" back to an instant status flip — the explosion playing out
-  before the overlay is deliberate UX. (One exception: a rock landing on Murphy removes him in
-  `fallingObjects` itself and the rock survives — rocks aren't enemies.)
+  before the overlay is deliberate UX. A crushing rock is deliberately left mid-air by
+  `fallingObjects` (never lands) so this same end-of-tick blast consumes it — every Murphy death
+  goes through the one explosion path, killer included.
 - **Round Wall cells are *drawn* round where a run ends**: `Renderer.wallCornerMask` rounds a
   Wall corner only when both neighbors on that side are non-solid (off-map counts as solid), so
   the visual matches the roll-off-the-edge mechanic. `WallSquare` stays sharp-cornered on purpose.

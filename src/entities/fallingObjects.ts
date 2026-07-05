@@ -13,7 +13,6 @@ import {
 } from "../tiles/TileProps";
 import { explodeBomb } from "./bomb";
 import { destroyElectron } from "./electron";
-import { blastFx } from "./blastOffsets";
 import { ROLL_ROTATION_STEP } from "../constants";
 
 function isOpenTarget(cell: Cell): boolean {
@@ -80,11 +79,10 @@ function resolveOne(
       return;
     }
     if (hasWasFalling(occ) && occ.wasFalling) {
-      // Only a rock already in motion has the momentum to be lethal on landing.
+      // Only a rock already in motion has the momentum to be lethal on landing. The rock never
+      // comes to rest: it's left mid-air here, and Murphy's end-of-tick death explosion
+      // (PhysicsEngine) consumes it — just like a rock caught in any other blast.
       events.murphyDied = true;
-      grid.removeOccupant(below);
-      commitMove(grid, pos, below, "falling", claims);
-      blastFx(grid, below);
       return;
     }
     // A resting rock that just lost support can't fall through Murphy — it's blocked exactly like
