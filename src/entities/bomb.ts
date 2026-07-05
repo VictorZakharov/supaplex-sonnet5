@@ -33,6 +33,11 @@ export function explodeBomb(grid: Grid, pos: Point, events: TickEvents, nextId: 
         explodeBomb(grid, p, events, nextId); // impact bombs have no fuse — a blast is itself a collision
       } else if (occ.type === "electron") {
         destroyElectron(grid, p, events, nextId);
+      } else if (occ.type === "snikSnak") {
+        // Enemies explode rather than just vanish, chaining onward — but unlike an Electron,
+        // a Snik-Snak's blast seeds no Infotrons (original Supaplex chain-reaction rules).
+        events.destroyedOccupantIds.add(occ.id);
+        explodeBomb(grid, p, events, nextId);
       } else {
         events.destroyedOccupantIds.add(occ.id);
         grid.removeOccupant(p);

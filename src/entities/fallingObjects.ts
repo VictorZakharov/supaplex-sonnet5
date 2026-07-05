@@ -71,11 +71,10 @@ function resolveOne(
 
   if (belowCell.occupant?.type === "murphy") {
     if (occ.type === "bomb") {
-      // Bombs are always primed — any collision detonates them, moving or not.
-      events.murphyDied = true;
-      grid.removeOccupant(below);
-      commitMove(grid, pos, below, "falling", claims);
-      explodeBomb(grid, below, events, nextId);
+      // Bombs are always primed — any collision detonates them, moving or not. The bomb
+      // explodes BY ITSELF, in its own cell; its blast flags Murphy below, whose own death
+      // explosion then follows at end-of-tick (PhysicsEngine). Two blasts, per the original.
+      explodeBomb(grid, pos, events, nextId);
       return;
     }
     if (hasWasFalling(occ) && occ.wasFalling) {
@@ -89,24 +88,23 @@ function resolveOne(
     // solid ground below, so it falls through to the rolling check (or just stays put) instead.
   }
 
-  if (belowCell.occupant?.type === "snikSnak") {
-    events.destroyedOccupantIds.add(belowCell.occupant.id);
-    grid.removeOccupant(below);
-    commitMove(grid, pos, below, "falling", claims);
-    if (occ.type === "bomb") explodeBomb(grid, below, events, nextId);
-    return;
-  }
-
-  if (belowCell.occupant?.type === "electron") {
-    // The impact is a real explosion: the falling object never lands — it's consumed along with
-    // everything destructible in the radius, then the cleared cells fill with Infotrons (see
-    // destroyElectron). A falling bomb isn't pre-removed: it's inside the blast, so the chain
-    // detonates it for a proper double explosion.
-    if (occ.type !== "bomb") {
-      events.destroyedOccupantIds.add(occ.id);
-      grid.removeOccupant(pos);
+  if (belowCell.occupant?.type === "snikSnak" || belowCell.occupant?.type === "electron") {
+    // The kill is the ENEMY's explosion: the falling object triggers it but adds no blast of
+    // its own — it just never lands, consumed by the enemy's blast like anything else in the
+    // radius. Adjacent enemies/bombs chain (each enemy explodes in turn), and only an
+    // Electron's own blast seeds Infotrons (original Supaplex rules). A falling bomb is the
+    // exception: it explodes BY ITSELF in its own cell, and its blast chains the enemy below.
+    if (occ.type === "bomb") {
+      explodeBomb(grid, pos, events, nextId);
+      return;
     }
-    destroyElectron(grid, below, events, nextId);
+    if (belowCell.occupant.type === "electron") {
+      destroyElectron(grid, below, events, nextId);
+    } else {
+      events.destroyedOccupantIds.add(belowCell.occupant.id);
+      grid.removeOccupant(below);
+      explodeBomb(grid, below, events, nextId);
+    }
     return;
   }
 
