@@ -34,16 +34,31 @@ export function resolveElectrons(grid: Grid, events: TickEvents, claims: ClaimSe
 }
 
 function stepElectron(grid: Grid, electron: ElectronOccupant, events: TickEvents, claims: ClaimSet): void {
-  // Counterclockwise: on the ring's shared column/row with a level's falling-object drop path,
-  // this makes the electron approach a dropped Zonk head-on instead of drifting away from it in
-  // lockstep (same speed, same direction never converges) — see Level 4's zonk-on-electron puzzle.
-  const nextIndex = (electron.ringIndex + 7) % 8;
+  // Default orbit is counterclockwise (orbitStep -1): on the ring's shared column/row with a
+  // level's falling-object drop path, this makes the electron approach a dropped Zonk head-on
+  // instead of drifting away from it in lockstep (same speed, same direction never converges) —
+  // see Level 4's zonk-on-electron puzzle. A dodged strike reverses it (see below).
+  const nextIndex = (electron.ringIndex + electron.orbitStep + 8) % 8;
   const target = ringPoint(electron.homeBug, nextIndex);
   if (!grid.inBounds(target)) return;
 
   const cell = grid.at(target);
   if (cell.occupant?.type === "murphy") {
-    events.murphyDied = true;
+    // Same kill-on-move principle as the Snik-Snak: one coil-up tick before the strike, so a
+    // player can dodge — but unlike the scissors' turn, nothing telegraphs it. That blind beat
+    // is the risk the electron adds.
+    if (electron.attacking) {
+      events.murphyDied = true;
+      return;
+    }
+    electron.attacking = true;
+    return;
+  }
+
+  if (electron.attacking) {
+    // Murphy dodged the coiled strike: the electron recoils and orbits the other way.
+    electron.attacking = false;
+    electron.orbitStep = electron.orbitStep === 1 ? -1 : 1;
     return;
   }
 

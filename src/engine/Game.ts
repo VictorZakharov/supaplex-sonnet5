@@ -91,12 +91,17 @@ export class Game {
 
     switch (this.state.status) {
       case "start": {
-        // Card-grid navigation: Left/Right step within a row, Up/Down jump a whole row.
+        // Card-grid navigation: Left/Right step within the row, Up/Down jump a row.
+        // Clamped at the grid edges — no wrap-around.
         const count = LEVELS.length;
-        if (events.selectPrev) this.selectedLevelIndex = (this.selectedLevelIndex - MENU_CARD_COLS + count) % count;
-        if (events.selectNext) this.selectedLevelIndex = (this.selectedLevelIndex + MENU_CARD_COLS) % count;
-        if (events.selectLeft) this.selectedLevelIndex = (this.selectedLevelIndex - 1 + count) % count;
-        if (events.selectRight) this.selectedLevelIndex = (this.selectedLevelIndex + 1) % count;
+        const col = this.selectedLevelIndex % MENU_CARD_COLS;
+        const row = Math.floor(this.selectedLevelIndex / MENU_CARD_COLS);
+        if (events.selectPrev && row > 0) this.selectedLevelIndex -= MENU_CARD_COLS;
+        if (events.selectNext && this.selectedLevelIndex + MENU_CARD_COLS < count) this.selectedLevelIndex += MENU_CARD_COLS;
+        if (events.selectLeft && col > 0) this.selectedLevelIndex -= 1;
+        if (events.selectRight && col < MENU_CARD_COLS - 1 && this.selectedLevelIndex + 1 < count) {
+          this.selectedLevelIndex += 1;
+        }
         this.startMenu.setSelected(this.selectedLevelIndex);
         if (events.confirm) this.loadLevel(this.selectedLevelIndex);
         break;

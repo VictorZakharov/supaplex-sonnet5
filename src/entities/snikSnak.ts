@@ -31,32 +31,53 @@ function turnRight(snik: SnikSnakOccupant): void {
 }
 
 /**
- * Original-style facing-driven scissors: everything happens in the faced cell, and turning is a
+ * Original-style facing-driven scissors. The core rule: Murphy only dies when the scissors are
+ * actually MOVING into his cell — either a committed telegraph snip, or a patrol step forward.
+ * Merely being faced by a wall-hugger that's about to turn away is safe. Turning is always a
  * visible 90°-per-tick rotation, never an instant snap. Per tick, exactly one of:
- * Murphy ahead → snip (death explosion); Murphy beside → rotate one step toward him (the
- * telegraph that gives the player a beat to escape); open left → turn left (the wall-hug bias);
+ * committed attack lands → snip (death explosion); Murphy beside → rotate one step toward him
+ * and commit (the telegraph — one beat to dodge); prey dodged → about-face retreat (two turns);
+ * open left → turn left (the wall-hug bias); Murphy ahead where patrol would step → snip;
  * open ahead → move there; blocked → rotate toward an open side.
  */
 function stepSnikSnak(grid: Grid, snik: SnikSnakOccupant, events: TickEvents, claims: ClaimSet): void {
   const ahead = grid.neighbor(snik.pos, snik.facing);
   const aheadCell = ahead ? grid.at(ahead) : null;
+  const aheadMurphy = aheadCell?.occupant?.type === "murphy";
 
-  if (aheadCell?.occupant?.type === "murphy") {
+  // A committed attack (telegraphed last tick) lands: this IS the scissors moving into Murphy.
+  if (snik.attacking && aheadMurphy) {
     events.murphyDied = true;
     return;
   }
 
+  // Telegraph: Murphy beside the scissors — rotate one step toward him and commit to the snip.
   for (const dir of ALL_DIRECTIONS) {
+    if (dir === snik.facing) continue;
     const target = grid.neighbor(snik.pos, dir);
     if (target && grid.at(target).occupant?.type === "murphy") {
       if (dir === rotateCW(snik.facing)) turnRight(snik);
       else turnLeft(snik);
+      snik.attacking = true;
       return;
     }
   }
 
+  // Prey escaped mid-telegraph: the classic about-face — the scissors turn tail and walk away,
+  // as two visible 90° rotations (never a 180° snap).
+  if (snik.attacking) {
+    snik.attacking = false;
+    snik.retreatTurns = 2;
+  }
+  if (snik.retreatTurns > 0) {
+    snik.retreatTurns -= 1;
+    turnLeft(snik);
+    return;
+  }
+
   // Left-hand hug: turn toward an open left cell — but never twice in a row, or open ground
   // would make them spin in place instead of patrolling little circles like the original.
+  // This fires even with Murphy dead ahead: a wall-hugger turning away doesn't snip.
   const leftDir = rotateCCW(snik.facing);
   const left = grid.neighbor(snik.pos, leftDir);
   if (!snik.turnedLastTick && left && isOpenCell(grid.at(left))) {
@@ -64,6 +85,11 @@ function stepSnikSnak(grid: Grid, snik: SnikSnakOccupant, events: TickEvents, cl
     return;
   }
 
+  // Patrol steps forward — and if Murphy is what's ahead, stepping into him is the kill.
+  if (aheadMurphy) {
+    events.murphyDied = true;
+    return;
+  }
   if (ahead && aheadCell && isOpenCell(aheadCell) && !isClaimed(claims, ahead)) {
     claim(claims, ahead);
     grid.moveOccupant(snik.pos, ahead, "walking");

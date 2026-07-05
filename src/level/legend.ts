@@ -69,6 +69,8 @@ export const LEGEND: Legend = {
       movementKind: "idle",
       facing: Direction.Right,
       turnedLastTick: false,
+      attacking: false,
+      retreatTurns: 0,
       rotation: 0,
       prevRotation: 0,
     }),
@@ -83,6 +85,8 @@ export const LEGEND: Legend = {
       movementKind: "idle",
       homeBug: { x: 0, y: 0 },
       ringIndex: 0,
+      orbitStep: -1,
+      attacking: false,
     }),
   },
 };

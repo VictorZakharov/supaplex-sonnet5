@@ -40,12 +40,12 @@ export const LEVEL_HINTS: readonly HintEntry[][] = [
     {
       swatch: PALETTE.electron,
       label: "Bug + Electron",
-      desc: "Electrons orbit their Bug forever. Deadly to touch — but drop a Zonk on one and it detonates: the Zonk is consumed, and the whole blast area fills with bonus Infotrons.",
+      desc: "Electrons orbit their Bug forever. Deadly — though like the scissors it strikes a beat after cornering you, and a dodge reverses its orbit. Nothing shows the wind-up, so that's a gamble. Drop a Zonk on one and it detonates, filling the blast area with bonus Infotrons.",
     },
     {
       swatch: PALETTE.snikSnak,
       label: "Snik-Snak",
-      desc: "Roams by turning and moving blade-first, hugging the wall on its left. Only the cell the blades point at gets snipped — step beside it and it first rotates toward you, one beat to get away. Destroyed by a falling object.",
+      desc: "Roams blade-first, hugging the wall on its left, and only kills by moving into you. Step beside it and it rotates toward you first — dodge in that beat and it turns tail. A wall-hugger passing you head-on just turns away. Destroyed by a falling object.",
     },
   ],
   [

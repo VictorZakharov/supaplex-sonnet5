@@ -54,7 +54,9 @@ export class StartMenu {
       name.textContent = `${i + 1}. ${level.name}`;
       card.appendChild(name);
 
-      card.addEventListener("mouseenter", () => onHover(i));
+      // mousemove, not mouseenter: after a keyboard move steals the selection, any physical
+      // mouse motion over a card must re-claim it — even if the cursor never left the card.
+      card.addEventListener("mousemove", () => onHover(i));
       card.addEventListener("click", () => onPick(i));
       grid.appendChild(card);
       this.cards.push(card);

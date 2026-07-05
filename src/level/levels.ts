@@ -317,10 +317,11 @@ function level6(): LevelData {
     // enough for the player to reach Zone D and plug the generator with the Orange Disk.
     generatorIntervalTicks: 60,
     // Killing the Electron is mandatory: its burst fills every open blast cell with Infotrons.
-    // Typical yield is 7-8; 6 is the guaranteed floor — the two worst ring positions have both
-    // the Bug tile and the (13,12) WallSquare pedestal inside the blast (7), and the roaming
-    // Snik-Snak can block one more shower cell if it wanders into the blast area the same tick.
-    extraInfotronsRequired: 6,
+    // 7 matches the worst kill position (the two ring cells with both the Bug tile and the
+    // (13,12) WallSquare pedestal in the blast; every other position yields 8). Known accepted
+    // edge: if the roaming Snik-Snak wanders into the blast area the exact same tick it can
+    // block one shower cell, costing the run — explicit design choice (12 total, not 11).
+    extraInfotronsRequired: 7,
   };
 }
 

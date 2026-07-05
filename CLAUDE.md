@@ -80,18 +80,21 @@ surfaces as an errored deployment.
 - **Full mechanics, not a simplified subset.** Zonk Generators and Timer Bombs are intentionally
   included even though the original 1991 Supaplex didn't have them — this was an explicit scope
   decision, not a mistake. Don't "fix" them away.
-- **Enemies kill facing-first, not by adjacency.** The Snik-Snak (`snikSnak.ts`) is facing-driven:
-  per tick it does exactly one of — snip Murphy in the *faced* cell, rotate one 90° step toward an
-  adjacent Murphy (the telegraph that gives the player one tick to escape), turn left toward open
-  ground (`turnedLastTick` blocks two consecutive left-hugs, so open ground yields patrol circles,
-  not spinning in place), move forward into an open faced cell, or rotate toward an open side when
-  blocked. Facing changes are always visible one-step rotations — the Snik-Snak carries a
-  continuous `rotation`/`prevRotation` angle (±π/2 per turn, interpolated by the renderer via
-  `isOccupantRotating` exactly like Zonk roll-spin), so the scissors ease smoothly through each
-  turn; never snap `facing` by more than 90° in one tick and always adjust `rotation` alongside
-  `facing`. Blades = front = deadly, handle rings = back. The Electron follows the same
-  kill-in-travel-direction principle via its orbit; its next cell is deliberately *not*
-  telegraphed — that's the risk it adds.
+- **Enemies kill only when MOVING into Murphy — never by facing or adjacency alone.** The
+  Snik-Snak (`snikSnak.ts`) per tick does exactly one of: land a committed snip (`attacking` — it
+  turned toward an adjacent Murphy last tick, and the snip IS its move into his cell); rotate one
+  90° step toward an adjacent Murphy and commit (the telegraph — one tick to dodge); about-face
+  after a dodged snip (`retreatTurns`, two visible turns, then it walks away — the classic
+  reversal); left-hug turn (`turnedLastTick` blocks two in a row so open ground yields circles,
+  not spinning) — this fires even with Murphy dead ahead, because a wall-hugger turning away is
+  harmless; step forward, where Murphy being the cell ahead is the patrol kill; or rotate toward
+  an open side when blocked. Turning is always ±90° per tick via the continuous
+  `rotation`/`prevRotation` angle the renderer interpolates (`isOccupantRotating`, like Zonk
+  roll-spin) — never snap `facing` without adjusting `rotation` alongside. Blades = front =
+  deadly, handle rings = back. The Electron mirrors the same rules invisibly: one `attacking`
+  coil-up tick before it strikes a Murphy in its next ring cell, and a dodge reverses
+  `orbitStep` — but the coil-up is deliberately NOT rendered; that blind beat is the risk the
+  electron adds (base orbit stays counterclockwise — see gotcha 5).
 - **Murphy's death is two-phase** (`MURPHY_DEATH_DELAY_TICKS`): any `events.murphyDied` removes him
   from the grid with a REAL end-of-tick `explodeBomb` blast (`PhysicsEngine`) — the adjacent enemy
   that killed him dies in it too (an Electron killer chain-bursts) — then the world keeps
@@ -228,10 +231,11 @@ surfaces as an errored deployment.
     `spawnElectronHarvest`, after ALL of the tick's blasts, because an overlapping bomb blast
     iterating past a just-filled cell would otherwise destroy part of the harvest. Every open
     blast cell (including the Electron's own) gets an Infotron, which falls naturally. A level
-    MAY require harvest Infotrons via `LevelData.extraInfotronsRequired` (the Finale sets 6),
-    but that number must stay at or below the worst-case yield: count solid cells in the blast
-    at every possible kill position AND assume a roaming enemy can block one more shower cell
-    the same tick (an enemy phase runs between the blast and the end-of-tick fill).
+    MAY require harvest Infotrons via `LevelData.extraInfotronsRequired` (the Finale sets 7 =
+    its worst kill-position yield, an explicit user decision for 12 total). When picking the
+    number, count solid cells in the blast at every possible kill position; note a roaming enemy
+    wandering into the blast area the same tick can block one more shower cell (an enemy phase
+    runs between the blast and the end-of-tick fill) — the Finale accepts that rare edge.
 13. **Testing gotcha: `events.anyKey`-driven state transitions (`"dead"` → reload, `"levelComplete"`
     → next level, etc.) are NOT gated by `debugFreeze`.** They live in `Game.loop`'s top-level
     `switch`, outside the `if (!this.debugFrozen)` guard around `updatePlaying`. A stray queued
