@@ -36,6 +36,9 @@ jobs:
         if: github.event.action != 'closed'
         run: npm run build
 
+      # comment: false — this workflow only writes to the gh-pages branch; the preview isn't
+      # actually live until the chained Publish Pages run finishes, so the "ready" comment is
+      # posted from pages.yml after a successful deploy instead of prematurely from here.
       - name: Deploy preview
         uses: rossjrw/pr-preview-action@v1
         with:
@@ -43,4 +46,29 @@ jobs:
           preview-branch: gh-pages
           umbrella-dir: pr-preview
           action: auto
-          comment: true
+          comment: false
+
+      - name: Comment (build/deploy failed)
+        if: failure() && github.event.action != 'closed'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const marker = '<!-- pr-preview-status -->';
+            const body = marker + '\n❌ **PR preview failed to build or deploy.**\n\n' +
+              `See the [PR preview run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}) for details.`;
+            const { data: comments } = await github.rest.issues.listComments({ ...context.repo, issue_number: context.issue.number });
+            const existing = comments.find(c => c.body.includes(marker));
+            if (existing) await github.rest.issues.updateComment({ ...context.repo, comment_id: existing.id, body });
+            else await github.rest.issues.createComment({ ...context.repo, issue_number: context.issue.number, body });
+
+      - name: Comment (preview removed)
+        if: success() && github.event.action == 'closed'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const marker = '<!-- pr-preview-status -->';
+            const body = marker + '\n🗑️ **PR preview removed** — the PR is closed, so its preview folder was deleted.';
+            const { data: comments } = await github.rest.issues.listComments({ ...context.repo, issue_number: context.issue.number });
+            const existing = comments.find(c => c.body.includes(marker));
+            if (existing) await github.rest.issues.updateComment({ ...context.repo, comment_id: existing.id, body });
+            else await github.rest.issues.createComment({ ...context.repo, issue_number: context.issue.number, body });
