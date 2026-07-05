@@ -37,7 +37,7 @@ export function drawStartScreen(
   ctx.font = `16px ${CANVAS_FONT}`;
   const lines = [
     "Arrow keys / WASD — move, dig, push, collect",
-    "Hold Space + direction — act in place, without moving",
+    "Hold Space (+ direction) — act in place / charge a bomb plant",
     "P — pause     R — restart level",
     "Collect all Infotrons to open the Exit",
   ];

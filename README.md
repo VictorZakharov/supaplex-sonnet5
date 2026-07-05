@@ -27,9 +27,10 @@ Full mechanics fidelity, not a simplified subset:
 - Zonk Generators
 - Bug enemies with orbiting Electrons, and wall-following Snik-Snaks
 - Two original-accurate bomb types: pushable/fallable impact bombs (explode on any
-  collision) and Murphy-planted timed bombs with their own fuse
-- A "Space + direction" action to collect an Infotron, dig a dirt tile, or plant a bomb
-  on an adjacent cell without moving into it
+  collision) and timed bombs Murphy collects as pickups, then plants with a short
+  Space-hold charge — next to himself or under his own feet
+- A "Space + direction" action to collect an Infotron or dig a dirt tile on an adjacent
+  cell without moving into it
 - Round-vs-square object/terrain physics: only round-shaped objects (Zonks, Infotrons,
   Orange Disks) roll off round surfaces — square bombs and flat "Square Wall" terrain
   never roll
@@ -39,8 +40,9 @@ Full mechanics fidelity, not a simplified subset:
 ## Controls
 
 - **Arrow keys** — move / dig / push
-- **Space + direction** — act on the adjacent cell without moving (collect an Infotron,
-  clear a dirt tile, or plant a timed bomb)
+- **Space + direction** — act on the adjacent cell without moving (collect an Infotron
+  or clear a dirt tile instantly; on open ground, hold to charge-plant a timed bomb)
+- **Space (held, no direction)** — charge-plant a timed bomb under Murphy's own feet
 - **P** — pause
 - **R** — restart the current level
 

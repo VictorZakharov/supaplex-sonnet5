@@ -26,6 +26,7 @@ export type OccupantType =
   | "infotron"
   | "orangeDisk"
   | "bomb"
+  | "bombPickup"
   | "timedBomb"
   | "snikSnak"
   | "electron";
@@ -51,6 +52,10 @@ interface OccupantBase {
 export interface MurphyOccupant extends OccupantBase {
   type: "murphy";
   facing: Direction;
+  /** Ticks Space has been held toward planting a timed bomb (see resolveMurphyLook). */
+  bombCharge: number;
+  /** The cell the current charge is aimed at — changing targets restarts the charge. */
+  bombChargeTarget: Point | null;
 }
 
 export interface ZonkOccupant extends OccupantBase {
@@ -82,10 +87,15 @@ export interface BombOccupant extends OccupantBase {
   hasFallen: boolean;
 }
 
-/** Planted by Murphy (see resolveBombPlant) from a limited per-level supply; counts down and detonates on its own. */
+/** Planted by Murphy (see resolveMurphyLook) from his collected supply; counts down and detonates on its own. */
 export interface TimedBombOccupant extends OccupantBase {
   type: "timedBomb";
   fuseTicks: number;
+}
+
+/** A collectible timed-bomb disk sitting in the level — walk into it (or Space + direction) to add one to Murphy's supply. */
+export interface BombPickupOccupant extends OccupantBase {
+  type: "bombPickup";
 }
 
 export interface SnikSnakOccupant extends OccupantBase {
@@ -105,6 +115,7 @@ export type Occupant =
   | InfotronOccupant
   | OrangeDiskOccupant
   | BombOccupant
+  | BombPickupOccupant
   | TimedBombOccupant
   | SnikSnakOccupant
   | ElectronOccupant;

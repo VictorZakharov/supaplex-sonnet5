@@ -18,6 +18,8 @@ export const DEFAULT_ZONK_GENERATOR_INTERVAL_TICKS = 25;
 
 /** How long a planted timed bomb burns before it detonates on its own. */
 export const TIMED_BOMB_FUSE_TICKS = 20;
+/** Ticks Space must be held before a timed bomb is actually planted (the "charge"). */
+export const BOMB_PLANT_CHARGE_TICKS = 5;
 export const CHAIN_BOMB_FUSE_TICKS = 3;
 
 /** Radians a rolling Zonk/Infotron's texture spins per rolled cell (cosmetic only). */

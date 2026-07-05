@@ -161,6 +161,10 @@ function level5(): LevelData {
 
   c.set(2, 2, "M");
 
+  // Murphy starts with no bombs — these two pickups on the way down are his whole supply.
+  c.set(2, 4, "b");
+  c.set(3, 4, "b");
+
   c.set(10, 3, "N");
   c.vline(9, 4, 13, "#");
   c.vline(11, 4, 13, "#");
@@ -196,7 +200,6 @@ function level5(): LevelData {
     rows: c.toRows(),
     legend: LEGEND,
     timeLimitSeconds: 260,
-    bombSupply: 2, // timed bombs: hold Space + direction to plant one, then move away before the fuse runs out
   };
 }
 
@@ -210,6 +213,8 @@ function level6(): LevelData {
 
   // --- Hub ---
   c.set(2, 2, "M");
+  c.set(3, 5, "b"); // bomb pickups — Murphy starts with none
+  c.set(3, 10, "b");
   c.vline(6, 1, 14, "#");
   c.set(6, 3, " "); // -> Zone A: Zonks
   c.set(6, 6, " "); // -> Zone B: Disks & Ports (one-way; comes back out a different door)
@@ -250,6 +255,15 @@ function level6(): LevelData {
   c.set(15, 8, "V"); // gravity port — the only way down to the return corridor
   c.set(15, 9, " "); // landing spot
   c.set(10, 9, "*"); // on the return corridor, resting on the floor below
+  // Gravity-port payoff: a Zonk plugs the corridor's far end, guarding one Infotron. It can't be
+  // pushed (the Infotron blocks the far side) and the walls around it are solid — but passing the
+  // gravity port flips gravity, and the Zonk floats up this escape chute, unplugging the corridor.
+  c.set(21, 9, "Z"); // the plug
+  c.set(21, 8, " "); // escape chute through the double wall above it
+  c.set(21, 7, " ");
+  c.set(22, 9, "*"); // the Infotron the plug guards — only reachable after the gravity flip
+  c.set(22, 8, "%"); // flat ceiling above the Infotron — on round Wall it would roll into the
+  // vacated plug cell once gravity flips and chase the Zonk up the chute
 
   // --- Zone C: Enemies (x7-14, y11-14) ---
   c.vline(15, 11, 14, "#"); // right wall, separating from Zone D
@@ -269,8 +283,11 @@ function level6(): LevelData {
   // Zonk-drop-on-electron bonus: push left to send it down into the ring's NE column — destroying
   // the electron bursts it into bonus Infotrons (see destroyElectron), which then fall naturally.
   // Not required for completion, purely a bonus. Pushed from (14,11), clear of the Zone D wall.
+  // The pedestal MUST be a single square wall: a wider platform here would pave over the ring cell
+  // at (12,12), permanently blocking the electron's orbit (shipped bug: the electron froze at the
+  // E cell forever, waiting for a walled-off NE cell to open).
   c.set(13, 11, "Z");
-  c.hline(12, 13, 12, "#");
+  c.set(13, 12, "%");
   c.set(12, 11, " ");
 
   // --- Zone D: Bombs & Generator (x16-22, y11-14) ---
@@ -289,7 +306,6 @@ function level6(): LevelData {
     rows: c.toRows(),
     legend: LEGEND,
     timeLimitSeconds: 400,
-    bombSupply: 2,
   };
 }
 

@@ -37,6 +37,7 @@ export const PALETTE = {
   electron: "#66e0ff",
   electronCore: "#ffffff",
   snikSnak: "#ff66cc",
+  snikSnakBlade: "#ffa3e0",
   snikSnakEye: "#ffffff",
   hudBg: "#111118",
   hudText: "#e8e8f0",

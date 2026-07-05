@@ -1,6 +1,7 @@
 import { Direction } from "../types";
 import { Cell, FxState } from "../engine/Cell";
 import { Occupant, TerrainType } from "../tiles/TileType";
+import { BOMB_PLANT_CHARGE_TICKS } from "../constants";
 import { PALETTE } from "./palette";
 
 function directionAngle(dir: Direction): number {
@@ -58,6 +59,16 @@ function drawFloppyDisk(ctx: CanvasRenderingContext2D, x: number, y: number, siz
   // Write-protect tab, bottom-left corner.
   ctx.fillStyle = PALETTE.bombShutter;
   ctx.fillRect(x + pad + w * 0.1, y + pad + w * 0.78, w * 0.16, w * 0.12);
+}
+
+/** An armed (fuse burning) timed-bomb disk, shared by the occupant and the planted-under-Murphy state. */
+function drawArmedDisk(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, fuseTicks: number): void {
+  drawFloppyDisk(ctx, x, y, size, PALETTE.bombArmed);
+  const urgent = fuseTicks < 6 && fuseTicks % 2 === 0;
+  ctx.fillStyle = urgent ? "#ffffff" : PALETTE.fuseSpark;
+  ctx.beginPath();
+  ctx.arc(x + size / 2, y + size * 0.14, size * 0.08, 0, Math.PI * 2);
+  ctx.fill();
 }
 
 export function drawTerrain(ctx: CanvasRenderingContext2D, cell: Cell, x: number, y: number, size: number): void {
@@ -169,6 +180,11 @@ export function drawTerrain(ctx: CanvasRenderingContext2D, cell: Cell, x: number
       ctx.strokeRect(x + 5, y + 5, size - 10, size - 10);
       break;
   }
+
+  // A bomb planted under Murphy's feet — drawn as part of the cell so Murphy renders on top of it.
+  if (cell.plantedBomb) {
+    drawArmedDisk(ctx, x, y, size, cell.plantedBomb.fuseTicks);
+  }
 }
 
 export function drawFx(ctx: CanvasRenderingContext2D, fx: FxState, x: number, y: number, size: number): void {
@@ -233,6 +249,15 @@ export function drawOccupant(
       ctx.lineWidth = 2;
       ctx.stroke();
       drawArrow(ctx, x, y, size, occ.facing, PALETTE.murphyOutline);
+      // Bomb-plant charge progress: a ring filling clockwise while Space is held.
+      if (occ.bombCharge > 0) {
+        const fraction = Math.min(1, occ.bombCharge / BOMB_PLANT_CHARGE_TICKS);
+        ctx.strokeStyle = PALETTE.fuseSpark;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(x + size / 2, y + size / 2, size * 0.46, -Math.PI / 2, -Math.PI / 2 + fraction * Math.PI * 2);
+        ctx.stroke();
+      }
       break;
     }
     case "zonk": {
@@ -311,25 +336,52 @@ export function drawOccupant(
       break;
     }
     case "timedBomb": {
-      drawFloppyDisk(ctx, x, y, size, PALETTE.bombArmed);
-      const cx = x + size / 2;
-      const urgent = occ.fuseTicks < 6 && occ.fuseTicks % 2 === 0;
-      ctx.fillStyle = urgent ? "#ffffff" : PALETTE.fuseSpark;
-      ctx.beginPath();
-      ctx.arc(cx, y + size * 0.14, size * 0.08, 0, Math.PI * 2);
-      ctx.fill();
+      drawArmedDisk(ctx, x, y, size, occ.fuseTicks);
+      break;
+    }
+    case "bombPickup": {
+      // A dormant timed-bomb disk waiting to be picked up — smaller than a planted one, with a
+      // pulsing white outline so it clearly reads as a collectible, not a live bomb.
+      const inset = size * 0.14;
+      drawFloppyDisk(ctx, x + inset, y + inset, size - inset * 2, PALETTE.bombArmed);
+      const pulse = 0.45 + 0.35 * Math.sin(performance.now() / 260);
+      ctx.save();
+      ctx.globalAlpha = pulse;
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x + inset * 0.55, y + inset * 0.55, size - inset * 1.1, size - inset * 1.1);
+      ctx.restore();
       break;
     }
     case "snikSnak": {
-      ctx.fillStyle = PALETTE.snikSnak;
-      ctx.fillRect(x + 4, y + 4, size - 8, size - 8);
-      ctx.fillStyle = PALETTE.snikSnakEye;
+      // Rotating scissors: two crossed blades spinning around a pivot screw, like the original's
+      // snipping shears — not a static square. Purely cosmetic, so wall-clock-driven is fine.
       const cx = x + size / 2;
       const cy = y + size / 2;
-      const vec = { x: Math.cos(directionAngle(occ.facing)), y: Math.sin(directionAngle(occ.facing)) };
+      const spin = ((performance.now() % 900) / 900) * Math.PI * 2;
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(spin);
+      const blade = (angle: number, color: string): void => {
+        ctx.save();
+        ctx.rotate(angle);
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(-size * 0.44, 0);
+        ctx.lineTo(-size * 0.1, -size * 0.1);
+        ctx.lineTo(size * 0.44, 0); // pointed blade tip
+        ctx.lineTo(-size * 0.1, size * 0.1);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      };
+      blade(0.5, PALETTE.snikSnak);
+      blade(-0.5, PALETTE.snikSnakBlade);
+      ctx.fillStyle = PALETTE.snikSnakEye;
       ctx.beginPath();
-      ctx.arc(cx + vec.x * size * 0.18, cy + vec.y * size * 0.18, size * 0.08, 0, Math.PI * 2);
+      ctx.arc(0, 0, size * 0.07, 0, Math.PI * 2);
       ctx.fill();
+      ctx.restore();
       break;
     }
     case "electron": {
