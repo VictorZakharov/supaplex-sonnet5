@@ -69,6 +69,24 @@ surfaces as an errored deployment.
 - **Full mechanics, not a simplified subset.** Zonk Generators and Timer Bombs are intentionally
   included even though the original 1991 Supaplex didn't have them — this was an explicit scope
   decision, not a mistake. Don't "fix" them away.
+- **Enemies kill facing-first, not by adjacency.** The Snik-Snak (`snikSnak.ts`) is facing-driven:
+  per tick it does exactly one of — snip Murphy in the *faced* cell, rotate one 90° step toward an
+  adjacent Murphy (the telegraph that gives the player one tick to escape), turn left toward open
+  ground (`turnedLastTick` blocks two consecutive left-hugs, so open ground yields patrol circles,
+  not spinning in place), move forward into an open faced cell, or rotate toward an open side when
+  blocked. Facing changes are always visible one-step rotations — the renderer orients the whole
+  scissors (blades = front = deadly, handle rings = back) along `facing`, so never snap facing by
+  more than 90° in one tick. The Electron follows the same kill-in-travel-direction principle via
+  its orbit; its next cell is deliberately *not* telegraphed — that's the risk it adds.
+- **Murphy's death is two-phase** (`MURPHY_DEATH_DELAY_TICKS`): any `events.murphyDied` removes him
+  from the grid with a 3x3 explosion fx at end-of-tick (`PhysicsEngine`), then the world keeps
+  simulating for the delay while `state.deathDelayTicks` counts down in `resolveCollisions`, and
+  only then does the status flip to `dead`/`gameOver`. Lives are decremented when the countdown
+  ends, not when the kill lands. Don't "simplify" back to an instant status flip — the explosion
+  playing out before the overlay is deliberate UX.
+- **Round Wall cells are *drawn* round where a run ends**: `Renderer.wallCornerMask` rounds a
+  Wall corner only when both neighbors on that side are non-solid (off-map counts as solid), so
+  the visual matches the roll-off-the-edge mechanic. `WallSquare` stays sharp-cornered on purpose.
 - **Two distinct bomb types** (`src/entities/bomb.ts`): impact bombs (type `"bomb"`, drawn as a
   square 3.5" floppy disk) are pushable/fallable but square-shaped so they never roll, and explode
   the instant they collide with anything (land, or get landed on) — otherwise permanently inert.
@@ -185,12 +203,15 @@ surfaces as an errored deployment.
     rolls/falls into afterward) makes the push silently fail against Base terrain (`isOpenForPush`
     requires exactly `Empty`) with no error — the object just doesn't move. When a push/roll demo
     "does nothing," check every cell along its path was carved, not just the start and end.
-12. **Destroying a Bug's Electron via `destroyElectron()` bursts it like a small bomb**: every Base
-    tile in its blast radius becomes a fresh Infotron (via `createInfotron`), which then falls
-    naturally under normal gravity — no special-casing needed beyond spawning it. These bonus
-    Infotrons are *not* counted in `infotronsRequired` (that's fixed at level-parse time from the
-    level's authored layout), so treat electron-kill Infotrons as optional bonus score, never as
-    something a level's completability depends on.
+12. **Destroying a Bug's Electron via `destroyElectron()` bursts it like a small bomb**: every
+    *open* cell in its blast radius (Base is cleared first; solid terrain and occupied cells are
+    skipped) fills with a fresh Infotron (via `createInfotron`), which then falls naturally under
+    normal gravity. Order matters in the falling-object path: the fallen object is moved into the
+    electron's cell *before* `burstElectron` runs, so the landing cell is seen as occupied and
+    never double-spawns — keep that ordering. These bonus Infotrons are *not* counted in
+    `infotronsRequired` (that's fixed at level-parse time from the level's authored layout), so
+    treat electron-kill Infotrons as optional bonus score, never as something a level's
+    completability depends on.
 13. **Testing gotcha: `events.anyKey`-driven state transitions (`"dead"` → reload, `"levelComplete"`
     → next level, etc.) are NOT gated by `debugFreeze`.** They live in `Game.loop`'s top-level
     `switch`, outside the `if (!this.debugFrozen)` guard around `updatePlaying`. A stray queued

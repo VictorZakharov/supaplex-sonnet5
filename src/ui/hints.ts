@@ -40,12 +40,12 @@ export const LEVEL_HINTS: readonly HintEntry[][] = [
     {
       swatch: PALETTE.electron,
       label: "Bug + Electron",
-      desc: "Electrons orbit their Bug forever. Deadly to touch — but a falling Zonk landing on one destroys it.",
+      desc: "Electrons orbit their Bug forever. Deadly to touch — but a falling Zonk landing on one destroys it, bursting bonus Infotrons into the open cells around it.",
     },
     {
       swatch: PALETTE.snikSnak,
       label: "Snik-Snak",
-      desc: "Patrols by always hugging the wall on its left. Deadly to touch, destroyed by a falling object.",
+      desc: "Roams by turning and moving blade-first, hugging the wall on its left. Only the cell the blades point at gets snipped — step beside it and it first rotates toward you, one beat to get away. Destroyed by a falling object.",
     },
   ],
   [

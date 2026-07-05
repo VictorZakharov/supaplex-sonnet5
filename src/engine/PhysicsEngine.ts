@@ -11,6 +11,7 @@ import { resolveSnikSnaks } from "../entities/snikSnak";
 import { resolveElectrons } from "../entities/electron";
 import { resolveZonkGenerators } from "../entities/zonkGenerator";
 import { resolveTimedBombs } from "../entities/bomb";
+import { blastFx } from "../entities/blastOffsets";
 
 function findMurphy(grid: Grid): MurphyOccupant | null {
   for (const occ of grid.allOccupants()) {
@@ -57,6 +58,18 @@ export class PhysicsEngine {
     resolveElectrons(this.grid, events, claims);
     resolveZonkGenerators(this.grid, this.gravity, claims, this.nextId);
     resolveTimedBombs(this.grid, events, this.nextId);
+
+    // Every Murphy death is an explosion first, message later: blow him off the grid now, and
+    // let resolveCollisions start the delay before the died overlay. Some killers (a landing
+    // rock) already removed him — then only their own fx applies.
+    if (events.murphyDied) {
+      const victim = findMurphy(this.grid);
+      if (victim) {
+        const at = victim.pos;
+        this.grid.removeOccupant(at);
+        blastFx(this.grid, at);
+      }
+    }
 
     this.state.elapsedTicks += 1;
     resolveCollisions(this.state, events);

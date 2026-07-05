@@ -55,6 +55,7 @@ export class Game {
     this.state.requiredInfotrons = parsed.infotronsRequired;
     this.state.remainingSeconds = data.timeLimitSeconds;
     this.state.bombSupply = data.bombSupply ?? 0;
+    this.state.deathDelayTicks = null;
     this.state.status = "playing";
     this.physics = new PhysicsEngine(this.grid, this.gravity, this.state, this.nextOccupantId);
     this.accumulatorMs = 0;

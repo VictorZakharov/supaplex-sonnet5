@@ -54,23 +54,34 @@ function stepElectron(grid: Grid, electron: ElectronOccupant, events: TickEvents
 }
 
 /**
- * Destroying a Bug's Electron bursts it like a small bomb: every Base tile in the blast radius
- * turns into a fresh Infotron (which then falls naturally under gravity like any other Infotron),
- * matching original Supaplex's Bug-death-spawns-Infotrons mechanic.
+ * Destroying a Bug's Electron bursts it like a small bomb: every open cell in the blast radius
+ * (Base gets cleared first) fills with a fresh Infotron, which then falls naturally under
+ * gravity — matching original Supaplex's Bug-death-spawns-Infotrons mechanic. Solid terrain and
+ * occupied cells are left alone.
  */
 export function destroyElectron(grid: Grid, pos: Point, events: TickEvents, nextId: () => number): void {
   const occ = grid.at(pos).occupant;
   if (!occ || occ.type !== "electron") return;
   events.destroyedOccupantIds.add(occ.id);
   grid.removeOccupant(pos);
+  burstElectron(grid, pos, nextId);
+}
 
+/**
+ * The Infotron-spawning burst around a just-destroyed Electron's cell. Split out so the
+ * falling-object path can move the fallen object into the center cell *first* — the burst
+ * naturally skips occupied cells, so the object's landing spot never double-spawns.
+ */
+export function burstElectron(grid: Grid, pos: Point, nextId: () => number): void {
   for (const offset of BLAST_OFFSETS) {
     const p = addPoints(pos, offset);
     if (!grid.inBounds(p)) continue;
     const cell = grid.at(p);
     if (cell.terrain === TerrainType.Base) {
       cell.terrain = TerrainType.Empty;
-      if (cell.occupant === null) grid.spawnOccupant(p, createInfotron(nextId(), p));
+    }
+    if (cell.terrain === TerrainType.Empty && cell.occupant === null && !cell.plantedBomb) {
+      grid.spawnOccupant(p, createInfotron(nextId(), p));
     }
     cell.fx = { kind: "explode", ticksLeft: FX_TICKS.explode };
   }

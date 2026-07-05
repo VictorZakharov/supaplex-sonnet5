@@ -12,8 +12,9 @@ import {
   isTerrainRounded,
 } from "../tiles/TileProps";
 import { explodeBomb } from "./bomb";
-import { destroyElectron } from "./electron";
-import { FX_TICKS, ROLL_ROTATION_STEP } from "../constants";
+import { burstElectron } from "./electron";
+import { blastFx } from "./blastOffsets";
+import { ROLL_ROTATION_STEP } from "../constants";
 
 function isOpenTarget(cell: Cell): boolean {
   return cell.terrain === TerrainType.Empty && cell.occupant === null;
@@ -83,7 +84,7 @@ function resolveOne(
       events.murphyDied = true;
       grid.removeOccupant(below);
       commitMove(grid, pos, below, "falling", claims);
-      belowCell.fx = { kind: "explode", ticksLeft: FX_TICKS.explode };
+      blastFx(grid, below);
       return;
     }
     // A resting rock that just lost support can't fall through Murphy — it's blocked exactly like
@@ -91,18 +92,17 @@ function resolveOne(
   }
 
   if (belowCell.occupant?.type === "snikSnak" || belowCell.occupant?.type === "electron") {
-    if (belowCell.occupant.type === "electron") {
-      destroyElectron(grid, below, events, nextId);
-    } else {
-      events.destroyedOccupantIds.add(belowCell.occupant.id);
-      grid.removeOccupant(below);
-    }
+    const wasElectron = belowCell.occupant.type === "electron";
+    events.destroyedOccupantIds.add(belowCell.occupant.id);
+    grid.removeOccupant(below);
+    // Move the fallen object in *before* the electron burst, so the burst's Infotron fill
+    // skips the landing cell instead of double-occupying it.
+    commitMove(grid, pos, below, "falling", claims);
     if (occ.type === "bomb") {
-      commitMove(grid, pos, below, "falling", claims);
       explodeBomb(grid, below, events, nextId);
       return;
     }
-    commitMove(grid, pos, below, "falling", claims);
+    if (wasElectron) burstElectron(grid, below, nextId);
     return;
   }
 

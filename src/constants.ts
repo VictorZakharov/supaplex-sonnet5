@@ -22,6 +22,9 @@ export const TIMED_BOMB_FUSE_TICKS = 20;
 export const BOMB_PLANT_CHARGE_TICKS = 5;
 export const CHAIN_BOMB_FUSE_TICKS = 3;
 
+/** Ticks between Murphy's death explosion and the "died" overlay — the world keeps running. */
+export const MURPHY_DEATH_DELAY_TICKS = 14;
+
 /** Radians a rolling Zonk/Infotron's texture spins per rolled cell (cosmetic only). */
 export const ROLL_ROTATION_STEP = Math.PI / 2;
 

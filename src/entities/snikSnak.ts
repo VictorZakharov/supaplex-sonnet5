@@ -1,6 +1,7 @@
-import { Direction, opposite, rotateCCW, rotateCW } from "../types";
+import { ALL_DIRECTIONS, rotateCCW, rotateCW } from "../types";
 import { Grid } from "../engine/Grid";
 import { ClaimSet, claim, isClaimed, TickEvents } from "../engine/TickCommands";
+import { Cell } from "../engine/Cell";
 import { SnikSnakOccupant, TerrainType } from "../tiles/TileType";
 
 export function resolveSnikSnaks(grid: Grid, events: TickEvents, claims: ClaimSet): void {
@@ -11,32 +12,56 @@ export function resolveSnikSnaks(grid: Grid, events: TickEvents, claims: ClaimSe
   }
 }
 
-/** Left-hand wall-following: try turn-toward-bias, then straight, then turn-away, then reverse. */
+function isOpenCell(cell: Cell): boolean {
+  return cell.terrain === TerrainType.Empty && cell.occupant === null;
+}
+
+/**
+ * Original-style facing-driven scissors: everything happens in the faced cell, and turning is a
+ * visible 90°-per-tick rotation, never an instant snap. Per tick, exactly one of:
+ * Murphy ahead → snip (death explosion); Murphy beside → rotate one step toward him (the
+ * telegraph that gives the player a beat to escape); open left → turn left (the wall-hug bias);
+ * open ahead → move there; blocked → rotate toward an open side.
+ */
 function stepSnikSnak(grid: Grid, snik: SnikSnakOccupant, events: TickEvents, claims: ClaimSet): void {
-  const candidates: Direction[] = [
-    rotateCCW(snik.facing),
-    snik.facing,
-    rotateCW(snik.facing),
-    opposite(snik.facing),
-  ];
+  const ahead = grid.neighbor(snik.pos, snik.facing);
+  const aheadCell = ahead ? grid.at(ahead) : null;
 
-  for (const dir of candidates) {
+  if (aheadCell?.occupant?.type === "murphy") {
+    events.murphyDied = true;
+    return;
+  }
+
+  for (const dir of ALL_DIRECTIONS) {
     const target = grid.neighbor(snik.pos, dir);
-    if (!target) continue;
-    const cell = grid.at(target);
-
-    if (cell.occupant?.type === "murphy") {
-      events.murphyDied = true;
-      snik.facing = dir;
-      return;
-    }
-
-    if (cell.terrain === TerrainType.Empty && cell.occupant === null && !isClaimed(claims, target)) {
-      claim(claims, target);
-      snik.facing = dir;
-      grid.moveOccupant(snik.pos, target, "walking");
+    if (target && grid.at(target).occupant?.type === "murphy") {
+      snik.facing = dir === rotateCW(snik.facing) ? dir : rotateCCW(snik.facing);
+      snik.turnedLastTick = true;
       return;
     }
   }
-  // Boxed in on all four sides — pace in place. Correct classic behavior, not a bug.
+
+  // Left-hand hug: turn toward an open left cell — but never twice in a row, or open ground
+  // would make them spin in place instead of patrolling little circles like the original.
+  const leftDir = rotateCCW(snik.facing);
+  const left = grid.neighbor(snik.pos, leftDir);
+  if (!snik.turnedLastTick && left && isOpenCell(grid.at(left))) {
+    snik.facing = leftDir;
+    snik.turnedLastTick = true;
+    return;
+  }
+
+  if (ahead && aheadCell && isOpenCell(aheadCell) && !isClaimed(claims, ahead)) {
+    claim(claims, ahead);
+    grid.moveOccupant(snik.pos, ahead, "walking");
+    snik.turnedLastTick = false;
+    return;
+  }
+
+  // Blocked ahead (and a left turn was declined or blocked): rotate one step toward an open
+  // side, right first. A dead end resolves itself — two left rotations reach the way back.
+  const rightDir = rotateCW(snik.facing);
+  const right = grid.neighbor(snik.pos, rightDir);
+  snik.facing = right && isOpenCell(grid.at(right)) ? rightDir : leftDir;
+  snik.turnedLastTick = true;
 }

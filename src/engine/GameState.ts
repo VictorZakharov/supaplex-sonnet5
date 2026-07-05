@@ -18,6 +18,12 @@ export interface GameState {
   status: GameStatus;
   /** Murphy's remaining supply of timed bombs he can plant this level. */
   bombSupply: number;
+  /**
+   * Non-null while Murphy has just exploded but the "died" overlay hasn't shown yet — the
+   * countdown (in ticks) until the status actually flips to dead/gameOver. The world keeps
+   * simulating during it so the explosion and its aftermath stay visible.
+   */
+  deathDelayTicks: number | null;
 }
 
 export function createInitialGameState(lives: number): GameState {
@@ -31,5 +37,6 @@ export function createInitialGameState(lives: number): GameState {
     remainingSeconds: 0,
     status: "start",
     bombSupply: 0,
+    deathDelayTicks: null,
   };
 }

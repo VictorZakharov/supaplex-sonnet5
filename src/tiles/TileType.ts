@@ -101,6 +101,8 @@ export interface BombPickupOccupant extends OccupantBase {
 export interface SnikSnakOccupant extends OccupantBase {
   type: "snikSnak";
   facing: Direction;
+  /** Turned on the previous tick — blocks two left-hugs in a row, so open ground circles instead of spinning in place. */
+  turnedLastTick: boolean;
 }
 
 export interface ElectronOccupant extends OccupantBase {
